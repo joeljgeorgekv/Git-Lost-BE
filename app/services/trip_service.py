@@ -1,10 +1,82 @@
 from __future__ import annotations
 
+from typing import Optional
+from sqlalchemy.orm import Session
+
+from app.models.trip import Trip
+from app.models.trip_user import TripUser
+from app.models.user import User
+from app.core.logger import log_info, log_error
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest
 
 class TripService:
-    """Placeholder service for trip domain logic."""
+    """Encapsulates trip-related business logic."""
 
-    def __init__(self) -> None:  # inject dependencies later
+    def __init__(self) -> None:
+        # If you later need external services, inject them here
         pass
 
-    # add methods later
+    def create_group_trip(self, db: Session, payload: CreateGroupTripRequest) -> None:
+        # Validate user exists
+        user: Optional[User] = db.query(User).filter(User.id == payload.user_id).first()
+        if user is None:
+            log_error("create trip failed - user not found", user_id=str(payload.user_id))
+            raise ValueError("user_not_found")
+
+        # Create trip
+        trip = Trip(trip_name=payload.trip_name)
+        db.add(trip)
+
+        # Link creator with preferences
+        tu = TripUser(
+            user_id=payload.user_id,
+            trip_id=trip.id,
+            date_ranges=payload.date_ranges,
+            preferred_places=payload.preferred_places,
+            budget=payload.budget,
+            preferences=payload.preferences,
+            must_haves=payload.must_haves,
+        )
+        db.add(tu)
+        db.commit()
+        log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id))
+
+    def add_user_to_trip(self, db: Session, payload: AddUserToTripRequest) -> None:
+        # Validate trip exists
+        trip: Optional[Trip] = db.query(Trip).filter(Trip.id == payload.trip_id).first()
+        if trip is None:
+            log_error("add user to trip failed - trip not found", trip_id=str(payload.trip_id))
+            raise ValueError("trip_not_found")
+
+        # Validate user exists
+        user: Optional[User] = db.query(User).filter(User.id == payload.user_id).first()
+        if user is None:
+            log_error("add user to trip failed - user not found", user_id=str(payload.user_id))
+            raise ValueError("user_not_found")
+
+        # Upsert TripUser
+        tu: Optional[TripUser] = (
+            db.query(TripUser)
+            .filter(TripUser.trip_id == payload.trip_id, TripUser.user_id == payload.user_id)
+            .first()
+        )
+        if tu is None:
+            tu = TripUser(
+                user_id=payload.user_id,
+                trip_id=payload.trip_id,
+                date_ranges=payload.date_ranges,
+                preferred_places=payload.preferred_places,
+                budget=payload.budget,
+                preferences=payload.preferences,
+                must_haves=payload.must_haves,
+            )
+            db.add(tu)
+        else:
+            tu.date_ranges = payload.date_ranges
+            tu.preferred_places = payload.preferred_places
+            tu.budget = payload.budget
+            tu.preferences = payload.preferences
+            tu.must_haves = payload.must_haves
+
+        db.commit()
+        log_info("user added to trip", trip_id=str(payload.trip_id), user_id=str(payload.user_id))
