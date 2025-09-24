@@ -18,7 +18,7 @@ class TripUser(Base):
     trip_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("trips.id"), primary_key=True
     )
-    preferred_dates: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    date_ranges: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     preferred_places: Mapped[list | None] = mapped_column(JSON, nullable=True)
     budget: Mapped[int | None] = mapped_column(Integer, nullable=True)
     preferences: Mapped[list | None] = mapped_column(JSON, nullable=True)

@@ -1,4 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+import time
+
+from app.core.logger import log_info
 
 from app.routes.health import router as health_router
 from app.routes.user_routes import router as user_router
@@ -14,7 +17,24 @@ app.include_router(user_router)
 app.include_router(trip_router)
 
 
+@app.middleware("http")
+async def logging_middleware(request: Request, call_next):
+    start = time.time()
+    log_info("request", method=request.method, path=request.url.path)
+    response = await call_next(request)
+    duration_ms = int((time.time() - start) * 1000)
+    log_info(
+        "response",
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration_ms=duration_ms,
+    )
+    return response
+
+
 @app.on_event("startup")
 def _startup() -> None:
     # Create tables automatically for hackathon convenience
+    log_info("app starting - initializing database")
     init_db()

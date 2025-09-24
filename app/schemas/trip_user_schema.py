@@ -8,7 +8,7 @@ from pydantic import BaseModel
 class TripUserCreate(BaseModel):
     user_id: uuid.UUID
     trip_id: uuid.UUID
-    preferred_dates: dict | None = None  # placeholder for List[DateRange]
+    date_ranges: list[str] | None = None  # e.g., "02-04-2002 - 04-04-2002"
     preferred_places: list[Any] | None = None  # placeholder for List[Place]
     budget: int | None = None
     preferences: list[str] | None = None
