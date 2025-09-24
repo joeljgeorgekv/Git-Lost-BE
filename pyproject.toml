@@ -1,18 +1,20 @@
 [tool.poetry]
-name = "booking-service-be"
+name = "trip-planner-be"
 version = "0.1.0"
-description = "Backend for booking flights, cabs, and hotels using OpenAI/LangGraph (scaffold)"
+description = "Backend scaffold for a group trip-planning application (FastAPI + SQLAlchemy + LangGraph)"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 fastapi = "^0.115.0"
 uvicorn = { extras = ["standard"], version = "^0.30.6" }
-langgraph = "^0.2.0"
 pydantic = "^2.9.2"
 pydantic-settings = "^2.5.2"
+SQLAlchemy = "^2.0.34"
+langgraph = "^0.2.0"
+psycopg = { extras = ["binary"], version = "^3.2" }
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"

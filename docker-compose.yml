@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: trip_planner_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trip}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trip}
+      POSTGRES_DB: ${POSTGRES_DB:-tripdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# For the FastAPI app, set DATABASE_URL to connect to this Postgres instance:
+# DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-trip}:${POSTGRES_PASSWORD:-trip}@db:5432/${POSTGRES_DB:-tripdb}
+# (Add psycopg driver to dependencies before using Postgres: e.g., `psycopg[binary]`)
+
+volumes:
+  pgdata:
