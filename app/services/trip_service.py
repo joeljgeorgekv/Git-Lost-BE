@@ -166,4 +166,4 @@ class TripService:
 
         db.commit()
         log_info("user added to trip by code", trip_id=str(trip.id), trip_code=code, user_id=str(payload.user_id))
-        return JoinTripResponse(trip_id=trip.id)
+        return JoinTripResponse(trip_id=trip.id, trip_name=trip.trip_name)
