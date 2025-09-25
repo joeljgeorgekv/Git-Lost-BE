@@ -77,13 +77,17 @@ jobs:
         run: |
           echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
 
+      - name: Get ECR password
+        run: |
+          echo "ECR_PASSWORD=$(aws ecr get-login-password --region \"${{ env.AWS_REGION }}\")" >> $GITHUB_ENV
+
       - name: Deploy over SSH to EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 13.233.11.91
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: IMAGE_URI,AWS_REGION,ECR_REPOSITORY,CONTAINER_NAME,APP_PORT,HOST_PORT
+          envs: IMAGE_URI,AWS_REGION,ECR_REPOSITORY,CONTAINER_NAME,APP_PORT,HOST_PORT,ECR_PASSWORD
           script: |
             set -euo pipefail
             echo "Deploying ${IMAGE_URI} to ${HOSTNAME}"
@@ -96,17 +100,8 @@ jobs:
               echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
               sudo apt-get update -y && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin unzip
             fi
-            if ! command -v aws >/dev/null 2>&1; then
-              echo "Installing AWS CLI v2..."
-              curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
-              if ! command -v unzip >/dev/null 2>&1; then
-                sudo apt-get update -y && sudo apt-get install -y unzip
-              fi
-              unzip -q /tmp/awscliv2.zip -d /tmp
-              sudo /tmp/aws/install || true
-            fi
-            # Login to ECR on EC2 (requires AWS CLI and instance profile with ECR pull permissions)
-            aws ecr get-login-password --region "${AWS_REGION}" | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            # Login to ECR on EC2 using password computed in CI
+            echo "${ECR_PASSWORD}" | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
 
             # Pull latest image
             sudo docker pull "${IMAGE_URI}"
