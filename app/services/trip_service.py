@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from app.models.trip import Trip
 from app.models.trip_user import TripUser
+from app.models.trip_chat import TripChatMessage
 from app.models.user import User
 from app.core.logger import log_info, log_error
 from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, CreateTripResponse, ListTripsResponse, TripSummary
@@ -101,5 +102,20 @@ class TripService:
             .all()
         )
 
-        trip_summaries = [TripSummary(id=str(t.id), trip_name=t.trip_name) for t in trips]
+        trip_summaries = []
+        for t in trips:
+            last_msg: Optional[TripChatMessage] = (
+                db.query(TripChatMessage)
+                .filter(TripChatMessage.trip_id == t.id)
+                .order_by(TripChatMessage.created_at.desc())
+                .first()
+            )
+            trip_summaries.append(
+                TripSummary(
+                    id=str(t.id),
+                    trip_name=t.trip_name,
+                    latest_message=(last_msg.message if last_msg else None),
+                    latest_message_at=(last_msg.created_at.isoformat() if last_msg else None),
+                )
+            )
         return ListTripsResponse(trips=trip_summaries)
