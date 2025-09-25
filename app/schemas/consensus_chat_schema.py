@@ -52,6 +52,13 @@ class HotelOption(BaseModel):
     price_per_night: Optional[str] = None
     location: Optional[str] = None
     amenities: List[str] = Field(default_factory=list)
+    image: Optional[str] = None
+    images: List[str] = Field(default_factory=list)
+    badges: List[str] = Field(default_factory=list)
+    why_it_matches: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    type: Optional[str] = None  # Hotel / Resort / Apartment
+    price_currency: Optional[str] = None
 
 
 class CabOption(BaseModel):
@@ -71,6 +78,43 @@ class TripOverview(BaseModel):
     duration: Optional[str] = None
 
 
+class HotelRoomDetails(BaseModel):
+    """Detailed room information for the booking modal."""
+    type: Optional[str] = None
+    bedding: Optional[str] = None
+    max_occupancy: Optional[int] = None
+    inclusions: List[str] = Field(default_factory=list)
+    refund_policy: Optional[str] = None
+
+
+class HotelPriceBreakdown(BaseModel):
+    """Price breakdown for the booking modal (formatted strings allowed)."""
+    room_rate_total: Optional[str] = None
+    taxes_and_fees: Optional[str] = None
+    discounts: Optional[str] = None
+    total: Optional[str] = None
+
+
+class HotelBookingDetails(BaseModel):
+    """Booking Details payload for the modal UI."""
+    hotel_name: Optional[str] = None
+    rating: Optional[float] = None
+    location: Optional[str] = None
+    image: Optional[str] = None
+    gallery: List[str] = Field(default_factory=list)
+    summary: Optional[str] = None
+    stay_check_in: Optional[str] = None  # YYYY-MM-DD
+    stay_check_out: Optional[str] = None  # YYYY-MM-DD
+    stay_nights: Optional[int] = None
+    travelers: Optional[int] = None
+    rooms: Optional[int] = None
+    room: Optional[HotelRoomDetails] = None
+    amenities: List[str] = Field(default_factory=list)
+    policies: Dict[str, Any] = Field(default_factory=dict)
+    currency: Optional[str] = None
+    price_breakdown: Optional[HotelPriceBreakdown] = None
+
+
 class ConsensusChatResponse(BaseModel):
     """Structured response for consensus chat with specific data types."""
     
@@ -85,6 +129,8 @@ class ConsensusChatResponse(BaseModel):
     hotel_options: List[HotelOption] = Field(default_factory=list)
     cab_transfer_options: List[CabOption] = Field(default_factory=list)
     cab_day_options: List[CabOption] = Field(default_factory=list)
+    # Booking modal payloads
+    hotel_booking: Optional[HotelBookingDetails] = None
     
     # AI suggestions and guidance
     suggestions: List[str] = Field(default_factory=list)

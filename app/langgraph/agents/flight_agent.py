@@ -123,3 +123,130 @@ class FlightAgent:
                 booking_link=f"https://booking.example.com/flights/{origin}-{destination}"
             )
         ]
+
+    # ------------------------------
+    # UI-oriented mock data helpers
+    # ------------------------------
+    def mock_flight_options_for_ui(
+        self,
+        origin_code: str = "DEL",
+        origin_city: str = "Delhi",
+        dest_code: str = "DPS",
+        dest_city: str = "Bali",
+        date: str = "2025-05-01",
+        cabin: str = "Economy",
+        currency: str = "INR",
+    ) -> List[Dict[str, Any]]:
+        """Return UI-ready mock flight cards.
+
+        Shape matches what a card component needs (times, codes, airline, price, cabin, stops).
+        """
+        cards: List[Dict[str, Any]] = [
+            {
+                "airline": "Air India",
+                "flight_code": "AI 314",
+                "origin_code": origin_code,
+                "origin_city": origin_city,
+                "dest_code": dest_code,
+                "dest_city": dest_city,
+                "departure_time": "14:00",
+                "arrival_time": "23:30",
+                "duration": "5h 30m",
+                "stops": 0,
+                "stops_text": "Direct",
+                "cabin": cabin,
+                "date": date,
+                "price_current": "₹18,500" if currency == "INR" else "$225",
+                "price_strike": "₹22,000" if currency == "INR" else "$270",
+            },
+            {
+                "airline": "Vistara",
+                "flight_code": "UK 971",
+                "origin_code": origin_code,
+                "origin_city": origin_city,
+                "dest_code": dest_code,
+                "dest_city": dest_city,
+                "departure_time": "09:10",
+                "arrival_time": "14:45",
+                "duration": "5h 35m",
+                "stops": 0,
+                "stops_text": "Direct",
+                "cabin": cabin,
+                "date": date,
+                "price_current": "₹19,200" if currency == "INR" else "$235",
+                "price_strike": "₹22,500" if currency == "INR" else "$275",
+            },
+            {
+                "airline": "AirAsia",
+                "flight_code": "AK 381 + AK 378",
+                "origin_code": origin_code,
+                "origin_city": origin_city,
+                "dest_code": dest_code,
+                "dest_city": dest_city,
+                "departure_time": "06:30",
+                "arrival_time": "15:40",
+                "duration": "9h 10m",
+                "stops": 1,
+                "stops_text": "1 stop via KUL",
+                "cabin": cabin,
+                "date": date,
+                "price_current": "₹15,800" if currency == "INR" else "$190",
+                "price_strike": "₹19,500" if currency == "INR" else "$235",
+            },
+        ]
+
+        return cards
+
+    def mock_flight_bookings_for_ui(
+        self,
+        origin_code: str = "DEL",
+        origin_city: str = "Delhi",
+        dest_code: str = "DPS",
+        dest_city: str = "Bali",
+        date: str = "2025-05-01",
+        travelers: int = 1,
+        currency: str = "INR",
+    ) -> List[Dict[str, Any]]:
+        """Return Booking Details payloads for the modal, based on the card mocks.
+
+        Includes savings, total for travelers, and route string.
+        """
+        cards = self.mock_flight_options_for_ui(
+            origin_code=origin_code,
+            origin_city=origin_city,
+            dest_code=dest_code,
+            dest_city=dest_city,
+            date=date,
+            currency=currency,
+        )
+
+        def _to_int(price: str) -> int:
+            import re
+            digits = re.sub(r"[^0-9]", "", price)
+            return int(digits) if digits else 0
+
+        bookings: List[Dict[str, Any]] = []
+        for c in cards:
+            current = _to_int(c.get("price_current", "0"))
+            strike = _to_int(c.get("price_strike", "0"))
+            savings = max(strike - current, 0)
+            total = current * max(travelers, 1)
+            route = f"{c['origin_code']} → {c['dest_code']}"
+
+            bookings.append({
+                "airline": c["airline"],
+                "flight_code": c["flight_code"],
+                "route": route,
+                "duration": c["duration"],
+                "stops_text": c["stops_text"],
+                "date": date,
+                "cabin": c["cabin"],
+                "price_current": c["price_current"],
+                "price_strike": c["price_strike"],
+                "savings": (f"₹{savings:,}" if currency == "INR" else f"${savings}") if savings else None,
+                "travelers": travelers,
+                "total": (f"₹{total:,}" if currency == "INR" else f"${total}"),
+                "type": "Flight",
+            })
+
+        return bookings

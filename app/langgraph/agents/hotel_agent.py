@@ -122,16 +122,151 @@ class HotelAgent:
                     photo_url="https://images.unsplash.com/search/photos/seminyak-hotel"
                 )
             ]
-        else:
-            return [
-                HotelOption(
-                    name=f"{destination} Central Hotel",
-                    location="City Center",
-                    price_per_night_usd=base_price,
-                    rating=4.2,
-                    amenities=["WiFi", "Restaurant", "Gym", "Pool"],
-                    why_matches=f"Well-located hotel in {destination} with good amenities",
-                    booking_link=f"https://booking.example.com/hotels/{destination.lower()}-central",
-                    photo_url=f"https://images.unsplash.com/search/photos/{destination.lower()}-hotel"
-                )
-            ]
+
+    # ------------------------------
+    # UI-oriented mock data helpers
+    # ------------------------------
+    def mock_hotel_options_for_ui(self, destination: str, budget_range: str = "mid-range") -> List[Dict[str, Any]]:
+        """Return UI-ready mock hotel cards matching consensus_chat_schema.HotelOption fields.
+        This does not call providers and is safe for demos.
+        """
+        hotels = [
+            {
+                "name": "Hotel Royal Onix",
+                "rating": 4.2,
+                "price_per_night": "₹2,500/night",
+                "price_currency": "INR",
+                "location": "Andheri West",
+                "amenities": ["Wi‑Fi", "AC Rooms", "Room Service"],
+                "image": "https://r2imghtlak.mmtcdn.com/r2-mmt-htl-image/htl-imgs/201604211438269175-53bf7510714811e8bfbf0a148b2efb82.jpg",
+                "images": [],
+                "badges": ["Great Value"],
+                "why_it_matches": ["Comfortable", "Good rating", "Value for money"],
+                "summary": "Comfortable mid-tier stay near Andheri West hot spots",
+                "type": "Hotel",
+            },
+            {
+                "name": "Hotel Mid-Town",
+                "rating": 4.1,
+                "price_per_night": "₹2,900/night",
+                "price_currency": "INR",
+                "location": "Andheri West (near Andheri Station)",
+                "amenities": ["Wi‑Fi", "Restaurant", "Airport Shuttle"],
+                "image": "https://r2imghtlak.mmtcdn.com/r2-mmt-htl-image/htl-imgs/201506161010244436-c5a1b71c289611ebbc540242ac110002.jpg",
+                "images": [],
+                "badges": ["Near Station"],
+                "why_it_matches": ["Very near Andheri station", "Balanced cost vs comfort"],
+                "summary": "Convenient location with balanced comfort and price",
+                "type": "Hotel",
+            },
+            {
+                "name": "Hotel Bawa Continental",
+                "rating": 4.3,
+                "price_per_night": "₹5,500/night",
+                "price_currency": "INR",
+                "location": "Juhu",
+                "amenities": ["Beach Access", "Restaurant", "Concierge"],
+                "image": "https://gos3.ibcdn.com/0ba5c43ec4d411e8a5d1023b42bcea16.jfif",
+                "images": [],
+                "badges": ["Beach Proximity"],
+                "why_it_matches": ["Close to Juhu Beach", "Nicer ambience"],
+                "summary": "Comfortable stay close to Juhu Beach with pleasant ambience",
+                "type": "Hotel",
+            },
+            {
+                "name": "Hotel Lucky",
+                "rating": 4.0,
+                "price_per_night": "₹3,800/night",
+                "price_currency": "INR",
+                "location": "Bandra West",
+                "amenities": ["Wi‑Fi", "Restaurant"],
+                "image": "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0e/d0/14/67/lucky-hotels-and-restaurants.jpg?w=900&h=500&s=1",
+                "images": [],
+                "badges": ["Good Location"],
+                "why_it_matches": ["Decent amenities", "Good Bandra location"],
+                "summary": "Reliable option with good Bandra West location",
+                "type": "Hotel",
+            },
+            {
+                "name": "Wind Flower Residency",
+                "rating": 4.1,
+                "price_per_night": "₹3,500/night",
+                "price_currency": "INR",
+                "location": "Bandra West",
+                "amenities": ["Wi‑Fi", "Room Service", "Laundry"],
+                "image": "https://dynamic-media-cdn.tripadvisor.com/media/photo-o/2a/54/8e/d1/hotel-windflower-regency.jpg?w=900&h=500&s=1",
+                "images": [],
+                "badges": ["Reliable"],
+                "why_it_matches": ["Good mid-tier", "Reliable services"],
+                "summary": "Mid-tier stay in Bandra West with dependable services",
+                "type": "Hotel",
+            },
+        ]
+
+        return hotels
+
+    def mock_hotel_bookings_for_ui(
+        self,
+        destination: str,
+        budget_range: str = "mid-range",
+        travelers: int = 2,
+        rooms: int = 1,
+        check_in: str = "2025-05-01",
+        check_out: str = "2025-05-06",
+    ) -> List[Dict[str, Any]]:
+        """Return a list of HotelBookingDetails-shaped dicts for the given destination.
+
+        Maps the mock hotel cards into the booking modal payload schema so the UI can
+        render the "Booking Details" dialog directly.
+        """
+        cards = self.mock_hotel_options_for_ui(destination, budget_range=budget_range)
+
+        def _nights(a: str, b: str) -> int:
+            try:
+                from datetime import datetime as _dt
+                return ( _dt.fromisoformat(b) - _dt.fromisoformat(a) ).days
+            except Exception:
+                return 5
+
+        stay_n = _nights(check_in, check_out)
+
+        bookings: List[Dict[str, Any]] = []
+        for c in cards:
+            per_night = c.get("price_per_night") or "₹0/night"
+            currency = c.get("price_currency") or ("INR" if per_night.strip().startswith("₹") else "USD")
+            # Build HotelBookingDetails-shaped payload
+            bookings.append({
+                "hotel_name": c.get("name"),
+                "rating": c.get("rating"),
+                "location": c.get("location"),
+                "image": c.get("image"),
+                "gallery": c.get("images", []),
+                "summary": c.get("summary"),
+                "stay_check_in": check_in,
+                "stay_check_out": check_out,
+                "stay_nights": stay_n,
+                "travelers": travelers,
+                "rooms": rooms,
+                "room": {
+                    "type": "Deluxe Room" if c.get("type") != "Hostel" else "Dorm Bed",
+                    "bedding": "1 King" if c.get("type") != "Hostel" else "Bunk",
+                    "max_occupancy": 2 if c.get("type") != "Hostel" else 1,
+                    "inclusions": ["Breakfast", "Free Wi‑Fi"],
+                    "refund_policy": "Free cancellation until 48h before check‑in",
+                },
+                "amenities": c.get("amenities", []),
+                "policies": {
+                    "check_in": "15:00",
+                    "check_out": "11:00",
+                    "cancellation": "Free cancellation up to 48h before check‑in",
+                },
+                "currency": currency,
+                "price_breakdown": {
+                    "room_rate_total": per_night,
+                    "taxes_and_fees": "Included",
+                    "discounts": "₹0" if currency == "INR" else "$0",
+                    "total": per_night,
+                },
+            })
+
+        return bookings
