@@ -6,6 +6,14 @@ from pydantic import BaseModel
 
 # ---------- Room Booking Models ----------
 
+class RoomBookingRequest(BaseModel):
+    number_of_rooms: int
+    trip_id: Optional[str] = None
+    hotel_id: Optional[str] = None
+    check_in: Optional[str] = None  # ISO date string
+    check_out: Optional[str] = None  # ISO date string
+    guests: Optional[int] = None
+
 class HotelInfo(BaseModel):
     id: str
     name: str
@@ -33,18 +41,19 @@ class PaymentInfo(BaseModel):
 
 
 class RoomBookingResponse(BaseModel):
+    number_of_rooms: int
     booking_id: str
     status: str
-    hotel: HotelInfo
-    stay: StayInfo
-    price: PriceInfo
-    payment: PaymentInfo
+    trip_id: Optional[str] = None
+    hotel_id: str
     notes: Optional[str] = None
 
 
 # ---------- Cab Booking Models ----------
 
 class CabBookingRequest(BaseModel):
+    trip_id: str
+    registration: str
     pickup_location: Optional[str] = None
     drop_location: Optional[str] = None
     pickup_time: Optional[str] = None  # ISO datetime string
@@ -81,13 +90,13 @@ class FareInfo(BaseModel):
 
 
 class CabBookingResponse(BaseModel):
-    booking_id: str
-    status: str
-    vehicle: VehicleInfo
-    driver: DriverInfo
-    trip: CabTripInfo
-    fare: FareInfo
-    notes: Optional[str] = None
+    trip_id: str
+    registration: str
+    pickup_location: Optional[str] = None
+    drop_location: Optional[str] = None
+    pickup_time: Optional[str] = None  # ISO datetime string
+    passengers: Optional[int] = None
+    cab_type: Optional[str] = None
 
 
 # ---------- Search/List Models ----------
@@ -124,3 +133,28 @@ class CabSearchItem(BaseModel):
     currency: str
     base_fare: float
     per_km: float
+
+
+# ---------- Flight Booking Models ----------
+
+class FlightBookingRequest(BaseModel):
+    trip_id: Optional[str] = None
+    flight_number: str
+    from_airport: Optional[str] = None
+    to_airport: Optional[str] = None
+    depart_time: Optional[str] = None  # ISO datetime string
+    passengers: Optional[int] = None
+    cabin_class: Optional[str] = None  # e.g., Economy, Business
+
+
+class FlightBookingResponse(BaseModel):
+    booking_id: str
+    status: str
+    trip_id: Optional[str] = None
+    flight_number: str
+    notes: Optional[str] = None
+    from_airport: Optional[str] = None
+    to_airport: Optional[str] = None
+    depart_time: Optional[str] = None  # ISO datetime string
+    passengers: Optional[int] = None
+    cabin_class: Optional[str] = None 

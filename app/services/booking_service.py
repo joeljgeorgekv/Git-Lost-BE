@@ -6,8 +6,9 @@ Do not implement real logic at this stage.
 
 from __future__ import annotations
 
-from typing import Dict, Any, List
+from typing import List
 from app.domain.booking_domain import (
+    RoomBookingRequest,
     RoomBookingResponse,
     HotelInfo,
     StayInfo,
@@ -15,6 +16,8 @@ from app.domain.booking_domain import (
     PaymentInfo,
     CabBookingResponse,
     CabBookingRequest,
+    FlightBookingRequest,
+    FlightBookingResponse,
     HotelSearchItem,
     FlightInfo,
     CabSearchItem,
@@ -33,86 +36,53 @@ class BookingService:
     def __init__(self) -> None:
         pass
 
-    def book_room(self, data: Any) -> RoomBookingResponse:
-        """Return a hardcoded room booking response based on optional input data.
-
-        Args:
-            data: payload that can be a dict or an object (e.g., Pydantic model) with attributes
-                  like hotel_id, check_in, check_out, guests, room_type.
-        """
+    def book_rooms(self, data: RoomBookingRequest) -> RoomBookingResponse:
+        """Echo back booking details strictly from the payload without hardcoded defaults."""
         def _get(key: str):
-            if isinstance(data, dict):
-                return data.get(key)
             return getattr(data, key, None)
 
         return RoomBookingResponse(
-            booking_id="RM-2025-0001",
-            status="confirmed",
-            hotel=HotelInfo(
-                id=_get("hotel_id") or "H1001",
-                name="Seaside Inn",
-                address="123 Ocean Drive, Goa",
-                room_type=_get("room_type") or "Deluxe",
-            ),
-            stay=StayInfo(
-                check_in=_get("check_in") or "2025-10-10",
-                check_out=_get("check_out") or "2025-10-12",
-                nights=2,
-                guests=_get("guests") or 2,
-            ),
-            price=PriceInfo(
-                currency="INR",
-                base=7800,
-                taxes=702,
-                total=8502,
-            ),
-            payment=PaymentInfo(
-                mode="pay_at_hotel",
-                paid=False,
-            ),
-            notes="This is a mocked booking response for development purposes.",
+                number_of_rooms=_get("number_of_rooms"),
+                booking_id="RM-2025-0001",
+                status="confirmed",
+            trip_id=_get("trip_id"),
+            hotel_id=_get("hotel_id"),
+            notes=None,
         )
 
     def book_cab(self, data: CabBookingRequest) -> CabBookingResponse:
-        """Return a hardcoded cab booking response based on optional input data.
-
-        Args:
-            data: payload that can be a dict or an object (e.g., Pydantic model) with attributes
-                  like pickup_location, drop_location, pickup_time, passengers, cab_type.
-        """
+        """Return cab booking response matching current CabBookingResponse model."""
         def _get(key: str):
             if isinstance(data, dict):
                 return data.get(key)
             return getattr(data, key, None)
 
         return CabBookingResponse(
-            booking_id="CB-2025-0456",
+            trip_id=_get("trip_id"),
+            registration=_get("registration"),
+            pickup_location=_get("pickup_location"),
+            drop_location=_get("drop_location"),
+            pickup_time=_get("pickup_time"),
+            passengers=_get("passengers"),
+            cab_type=_get("cab_type"),
+        )
+
+    def book_flight(self, data: FlightBookingRequest) -> FlightBookingResponse:
+        """Return flight booking response matching current FlightBookingResponse model."""
+        def _get(key: str):
+            return getattr(data, key, None)
+
+        return FlightBookingResponse(
+            booking_id="FL-2025-0789",
             status="confirmed",
-            vehicle=VehicleInfo(
-                type=_get("cab_type") or "Sedan",
-                model="Toyota Etios",
-                registration="GA-07-AB-1234",
-            ),
-            driver=DriverInfo(
-                name="Akhil",
-                phone="+91-98765-43210",
-                rating=4.8,
-            ),
-            trip=CabTripInfo(
-                pickup_location=_get("pickup_location") or "Dabolim Airport",
-                drop_location=_get("drop_location") or "Candolim Beach",
-                pickup_time=_get("pickup_time") or "2025-10-10T14:30:00+05:30",
-                passengers=_get("passengers") or 2,
-                estimated_duration_min=60,
-                estimated_distance_km=38.5,
-            ),
-            fare=FareInfo(
-                currency="INR",
-                base=1200,
-                taxes=108,
-                total=1308,
-            ),
-            notes="This is a mocked cab booking response for development purposes.",
+            trip_id=_get("trip_id"),
+            flight_number=_get("flight_number"),
+            notes=None,
+            from_airport=_get("from_airport"),
+            to_airport=_get("to_airport"),
+            depart_time=_get("depart_time"),
+            passengers=_get("passengers"),
+            cabin_class=_get("cabin_class"),
         )
 
     def get_hotels(self) -> List[HotelSearchItem]:
