@@ -8,7 +8,7 @@ from app.models.trip_user import TripUser
 from app.models.trip_chat import TripChatMessage
 from app.models.user import User
 from app.core.logger import log_info, log_error
-from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, CreateTripResponse, ListTripsResponse, TripSummary
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, TripSummary
 
 
 class TripService:
@@ -137,3 +137,32 @@ class TripService:
                 )
             )
         return ListTripsResponse(trips=trip_summaries)
+
+    def add_user_to_trip_by_code(self, db: Session, code: str, payload: AddUserToTripByCodeRequest) -> None:
+        # Validate trip exists by code
+        trip: Optional[Trip] = db.query(Trip).filter(Trip.trip_code == code).first()
+        if trip is None:
+            log_error("add user by code failed - trip not found", trip_code=code)
+            raise ValueError("trip_not_found")
+
+        # Validate user exists
+        user: Optional[User] = db.query(User).filter(User.id == payload.user_id).first()
+        if user is None:
+            log_error("add user by code failed - user not found", user_id=str(payload.user_id))
+            raise ValueError("user_not_found")
+
+        # Upsert TripUser
+        tu: Optional[TripUser] = (
+            db.query(TripUser)
+            .filter(TripUser.trip_id == trip.id, TripUser.user_id == payload.user_id)
+            .first()
+        )
+        if tu is None:
+            tu = TripUser(
+                user_id=payload.user_id,
+                trip_id=trip.id,
+            )
+            db.add(tu)
+
+        db.commit()
+        log_info("user added to trip by code", trip_id=str(trip.id), trip_code=code, user_id=str(payload.user_id))

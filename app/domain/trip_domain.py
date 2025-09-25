@@ -40,3 +40,7 @@ class AddUserToTripRequest(BaseModel):
     budget: int | None = None
     preferences: list[str] | None = None
     must_haves: list[str] | None = None
+
+
+class AddUserToTripByCodeRequest(BaseModel):
+    user_id: uuid.UUID
