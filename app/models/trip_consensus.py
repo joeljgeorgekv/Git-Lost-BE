@@ -21,6 +21,7 @@ class TripConsensus(Base):
     
     # Current processing state
     status = Column(String(50), nullable=False, default="processing", index=True)  # processing, multiple_candidates, finalized, no_new_messages, error
+    iteration_count = Column(Integer, nullable=False, default=0)  # Track iterations to force convergence after 3 rounds
     
     # Structured data (JSON fields)
     summary = Column(JSON, nullable=True)  # Extracted summary from messages

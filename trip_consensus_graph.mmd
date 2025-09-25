@@ -6,14 +6,16 @@ graph TD;
 	place_suggestion(place_suggestion)
 	place_selection(place_selection)
 	consensus(consensus)
+	save_consensus(save_consensus)
 	__end__([<p>__end__</p>]):::last
 	__start__ --> check_messages;
 	check_messages --> summarizer;
-	consensus --> __end__;
+	consensus --> save_consensus;
 	place_suggestion --> place_selection;
+	save_consensus --> __end__;
 	summarizer --> place_suggestion;
 	place_selection -.-> consensus;
-	place_selection -. &nbsp;end&nbsp; .-> __end__;
+	place_selection -. &nbsp;end&nbsp; .-> save_consensus;
 	classDef default fill:#f2f0ff,line-height:1.2
 	classDef first fill-opacity:0
 	classDef last fill:#bfb6fc
