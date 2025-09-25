@@ -13,6 +13,19 @@ router = APIRouter(prefix="/trips", tags=["trips"])  # Intentionally empty for M
 service = TripService()
 
 
+@router.get("")
+def get_trips_root():
+    """Root trips endpoint - returns API info."""
+    return {
+        "message": "Trip Planner API", 
+        "endpoints": {
+            "POST /trips": "Create a new trip",
+            "POST /trips/add-user": "Add user to trip", 
+            "GET /trips/by-user/{username}": "List trips for user"
+        }
+    }
+
+
 @router.post("", status_code=status.HTTP_200_OK, response_model=CreateTripResponse)
 def create_group_trip(payload: CreateGroupTripRequest, db: Session = Depends(get_db)) -> CreateTripResponse:
     log_info("create trip request", trip_name=payload.trip_name, user_id=str(payload.user_id))

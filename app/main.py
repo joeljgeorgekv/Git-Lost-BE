@@ -29,8 +29,33 @@ def _setup_langsmith():
 
 app = FastAPI(title="Trip Planner Service", version="0.1.0")
 
+# Setup CORS - Allow all origins for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
 # Setup LangSmith tracing
 _setup_langsmith()
+
+# Root endpoint
+@app.get("/")
+def read_root():
+    """Root endpoint - API information."""
+    return {
+        "message": "Trip Planner API",
+        "version": "0.1.0",
+        "status": "running",
+        "endpoints": {
+            "docs": "/docs",
+            "users": "/users",
+            "trips": "/trips", 
+            "chats": "/chats"
+        }
+    }
 
 # Include routers
 app.include_router(user_router)
