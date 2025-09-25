@@ -131,6 +131,7 @@ class TripService:
                 TripSummary(
                     id=str(t.id),
                     trip_name=t.trip_name,
+                    trip_code=t.trip_code,
                     latest_message=(last_msg.message if last_msg else None),
                     latest_message_at=(last_msg.created_at.isoformat() if last_msg else None),
                 )

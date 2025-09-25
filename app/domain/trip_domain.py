@@ -23,6 +23,7 @@ class CreateTripResponse(BaseModel):
 class TripSummary(BaseModel):
     id: str  # UUID as string for client compatibility
     trip_name: str
+    trip_code: str
     latest_message: str | None = None
     latest_message_at: str | None = None  # ISO timestamp string
 
