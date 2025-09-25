@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
-
+ 
 
 class TripChatCreate(BaseModel):
     """Request body to create a trip chat message."""
@@ -22,3 +22,4 @@ class TripChatResponse(BaseModel):
     username: str
     message: str
     time: datetime
+    consensus: Dict[str, Any] | None = None
