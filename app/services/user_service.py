@@ -24,7 +24,7 @@ class UserService:
         db.add(user)
         db.commit()
         log_info("signup success", username=payload.username)
-        return {"message": "signup successful", "username": payload.username}
+        return {"message": "signup successful", "username": payload.username, "user_id": str(user.id)}
 
     def login(self, db: Session, payload: LoginRequest) -> dict:
         log_info("login request", username=payload.username)
@@ -33,4 +33,9 @@ class UserService:
             log_error("login failed", username=payload.username)
             raise ValueError("invalid_credentials")
         log_info("login success", username=payload.username)
-        return {"access_token": f"fake-token-{payload.username}", "token_type": "bearer"}
+        return {
+            "access_token": f"fake-token-{payload.username}",
+            "token_type": "bearer",
+            "user_id": str(user.id),
+            "username": user.username,
+        }

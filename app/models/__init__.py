@@ -12,3 +12,4 @@ class Base(DeclarativeBase):
 from . import trip  # noqa: F401
 from . import trip_user  # noqa: F401
 from . import user  # noqa: F401
+from . import trip_chat  # noqa: F401

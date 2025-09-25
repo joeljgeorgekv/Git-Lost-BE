@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+import uuid
 from sqlalchemy.orm import Session
 
 from app.models.trip import Trip
@@ -16,7 +17,7 @@ class TripService:
         # If you later need external services, inject them here
         pass
 
-    def create_group_trip(self, db: Session, payload: CreateGroupTripRequest) -> None:
+    def create_group_trip(self, db: Session, payload: CreateGroupTripRequest) -> uuid.UUID:
         # Validate user exists
         user: Optional[User] = db.query(User).filter(User.id == payload.user_id).first()
         if user is None:
@@ -26,6 +27,8 @@ class TripService:
         # Create trip
         trip = Trip(trip_name=payload.trip_name)
         db.add(trip)
+        # Ensure trip.id is generated before using it in TripUser
+        db.flush()
 
         # Link creator with preferences
         tu = TripUser(
@@ -40,6 +43,7 @@ class TripService:
         db.add(tu)
         db.commit()
         log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id))
+        return trip.id
 
     def add_user_to_trip(self, db: Session, payload: AddUserToTripRequest) -> None:
         # Validate trip exists
@@ -74,9 +78,28 @@ class TripService:
         else:
             tu.date_ranges = payload.date_ranges
             tu.preferred_places = payload.preferred_places
-            tu.budget = payload.budget
             tu.preferences = payload.preferences
             tu.must_haves = payload.must_haves
 
         db.commit()
         log_info("user added to trip", trip_id=str(payload.trip_id), user_id=str(payload.user_id))
+
+    def list_trips_for_username(self, db: Session, username: str) -> list[dict]:
+        """Return trips for a given username as list of {id, trip_name}.
+
+        Raises ValueError('user_not_found') if the username does not exist.
+        """
+        user: Optional[User] = db.query(User).filter(User.username == username).first()
+        if user is None:
+            log_error("list trips failed - user not found", username=username)
+            raise ValueError("user_not_found")
+
+        trips = (
+            db.query(Trip)
+            .join(TripUser, TripUser.trip_id == Trip.id)
+            .filter(TripUser.user_id == user.id)
+            .order_by(Trip.trip_name.asc())
+            .all()
+        )
+
+        return [{"id": str(t.id), "trip_name": t.trip_name} for t in trips]

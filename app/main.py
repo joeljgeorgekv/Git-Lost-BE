@@ -7,7 +7,7 @@ from app.routes.health import router as health_router
 from app.routes.user_routes import router as user_router
 from app.routes.trip_routes import router as trip_router
 from app.core.database import init_db
-from app.routes.clean_chat_routes import router as chat_router
+from app.routes.chat_routes import router as chat_router
 from app.routes.travel_planning_routes import router as travel_router
 
 app = FastAPI(title="Trip Planner Service", version="0.1.0")
