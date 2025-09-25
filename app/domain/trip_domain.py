@@ -17,6 +17,7 @@ class CreateGroupTripRequest(BaseModel):
 
 class CreateTripResponse(BaseModel):
     trip_id: uuid.UUID
+    trip_code: str
 
 
 class TripSummary(BaseModel):

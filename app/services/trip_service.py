@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+import random
 from sqlalchemy.orm import Session
 from app.models.trip import Trip
 from app.models.trip_user import TripUser
@@ -24,8 +25,9 @@ class TripService:
             log_error("create trip failed - user not found", user_id=str(payload.user_id))
             raise ValueError("user_not_found")
 
-        # Create trip
-        trip = Trip(trip_name=payload.trip_name)
+        # Create trip with unique numeric code (6-8 digits)
+        trip_code: str = self._generate_unique_trip_code(db)
+        trip = Trip(trip_name=payload.trip_name, trip_code=trip_code)
         db.add(trip)
         # Ensure trip.id is generated before using it in TripUser
         db.flush()
@@ -42,8 +44,23 @@ class TripService:
         )
         db.add(tu)
         db.commit()
-        log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id))
-        return CreateTripResponse(trip_id=trip.id)
+        log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id), trip_code=trip.trip_code)
+        return CreateTripResponse(trip_id=trip.id, trip_code=trip.trip_code)
+
+    def _generate_unique_trip_code(self, db: Session) -> str:
+        """Generate a unique 6-8 digit numeric code for a trip.
+
+        Tries random codes and checks uniqueness in the database. Uses increasing
+        length if collisions occur.
+        """
+        for length in (6, 7, 8):
+            for _ in range(100):
+                candidate = str(random.randint(10 ** (length - 1), (10 ** length) - 1))
+                exists = db.query(Trip).filter(Trip.trip_code == candidate).first() is not None
+                if not exists:
+                    return candidate
+        # As a fallback, append a random suffix to a 8-digit base
+        return str(random.randint(10 ** 7, (10 ** 8) - 1))
 
     def add_user_to_trip(self, db: Session, payload: AddUserToTripRequest) -> None:
         # Validate trip exists
