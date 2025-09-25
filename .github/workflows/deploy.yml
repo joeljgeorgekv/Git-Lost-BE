@@ -83,6 +83,7 @@ jobs:
           host: 13.233.11.91
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: IMAGE_URI,AWS_REGION,ECR_REPOSITORY,CONTAINER_NAME,APP_PORT,HOST_PORT
           script: |
             set -euo pipefail
             echo "Deploying ${IMAGE_URI} to ${HOSTNAME}"
