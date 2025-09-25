@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import Column, DateTime, Integer, String, Text, ForeignKey, Index, Enum as SAEnum
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 
 from app.models import Base
 
@@ -31,6 +31,7 @@ class TripChatMessage(Base):
     message = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     chat_status = Column(SAEnum(ChatStatus, name="chat_status_enum"), nullable=False, default=ChatStatus.NEW, index=True)
+    consensus = Column(JSONB, nullable=True)
 
     __table_args__ = (
         Index("ix_trip_chat_trip_time", "trip_id", "created_at"),
