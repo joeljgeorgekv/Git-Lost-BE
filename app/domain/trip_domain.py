@@ -44,3 +44,7 @@ class AddUserToTripRequest(BaseModel):
 
 class AddUserToTripByCodeRequest(BaseModel):
     user_id: uuid.UUID
+
+
+class JoinTripResponse(BaseModel):
+    trip_id: uuid.UUID

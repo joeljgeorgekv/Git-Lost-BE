@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.logger import log_info, log_error
-from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, JoinTripResponse
 from app.services.trip_service import TripService
 from app.models.user import User
 from app.models.trip import Trip
@@ -50,8 +50,8 @@ def add_user_to_trip(payload: AddUserToTripRequest, db: Session = Depends(get_db
     return Response(status_code=status.HTTP_200_OK)
 
 
-@router.post("/join", status_code=status.HTTP_200_OK)
-def add_user_to_trip_by_code(code: str, payload: AddUserToTripByCodeRequest, db: Session = Depends(get_db)):
+@router.post("/join", status_code=status.HTTP_200_OK, response_model=JoinTripResponse)
+def add_user_to_trip_by_code(code: str, payload: AddUserToTripByCodeRequest, db: Session = Depends(get_db)) -> JoinTripResponse:
     """Join a trip using a trip code provided as query parameter `code`.
 
     Example: POST /trips/join?code=123456
@@ -59,7 +59,7 @@ def add_user_to_trip_by_code(code: str, payload: AddUserToTripByCodeRequest, db:
     """
     log_info("add user to trip by code request", trip_code=code, user_id=str(payload.user_id))
     try:
-        service.add_user_to_trip_by_code(db, code, payload)
+        return service.add_user_to_trip_by_code(db, code, payload)
     except ValueError as e:
         if str(e) == "trip_not_found":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="trip not found")
