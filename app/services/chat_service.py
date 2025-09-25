@@ -6,9 +6,10 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 
+from langchain_openai import ChatOpenAI
 from sqlalchemy.orm import Session
 
-from app.clients.openai_client import OpenAIClient
+from app.core.config import settings
 from app.core.logger import log_info
 from app.models.chat import ChatSession, ChatMessage
 from app.schemas.chat_schema import (
@@ -25,7 +26,11 @@ class ChatService:
     
     def __init__(self, db: Session):
         self.db = db
-        self.openai_client = OpenAIClient()
+        self.llm = ChatOpenAI(
+            model="gpt-3.5-turbo",
+            temperature=0.7,
+            openai_api_key=settings.openai_api_key
+        )
     
     def create_session(self, user_id: Optional[int] = None) -> ChatSessionResponse:
         """Create a new chat session."""
@@ -154,7 +159,12 @@ class ChatService:
         
         # Get AI response
         try:
-            ai_response = self.openai_client.chat(openai_messages, model=request.model)
+            response = self.llm.invoke(openai_messages)
+            ai_response = {
+                "content": response.content,
+                "model": request.model,
+                "usage": {"total_tokens": response.response_metadata.get("token_usage", {}).get("total_tokens", 0)}
+            }
             
             # Save AI response
             assistant_message = ChatMessage(
@@ -174,8 +184,8 @@ class ChatService:
                     {"role": "user", "content": request.message}
                 ]
                 try:
-                    title_response = self.openai_client.chat(title_messages, model="gpt-3.5-turbo")
-                    chat_session.title = title_response["content"].strip()[:50]
+                    title_response = self.llm.invoke(title_messages)
+                    chat_session.title = title_response.content.strip()[:50]
                 except Exception:
                     # Fallback to truncated user message
                     chat_session.title = request.message[:50]
