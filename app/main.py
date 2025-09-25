@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.routes.chat_routes import router as chat_router
 from app.routes.trip_routes import router as trip_router
 from app.routes.user_routes import router as user_router
-
+from app.routes.consensus_chat_routes import router as consensus_chat_router
 
 def _setup_langsmith():
     """Setup LangSmith tracing if configured."""
@@ -33,9 +33,20 @@ app = FastAPI(title="Trip Planner Service", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allow all headers
+    allow_credentials=False,  # Cannot be True when allow_origins=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "accept",
+        "accept-encoding", 
+        "authorization",
+        "content-type",
+        "dnt",
+        "origin",
+        "user-agent",
+        "x-csrftoken",
+        "x-requested-with",
+        "ngrok-skip-browser-warning",  # Add ngrok header
+    ],
 )
 
 # Setup LangSmith tracing
@@ -57,10 +68,17 @@ def read_root():
         }
     }
 
+# Explicit OPTIONS handler for CORS preflight
+@app.options("/{full_path:path}")
+def options_handler(full_path: str):
+    """Handle CORS preflight requests."""
+    return {"message": "OK"}
+
 # Include routers
 app.include_router(user_router)
 app.include_router(trip_router)
 app.include_router(chat_router)
+app.include_router(consensus_chat_router)
 
 
 @app.middleware("http")
