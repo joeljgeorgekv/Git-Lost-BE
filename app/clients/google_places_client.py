@@ -1,45 +1,59 @@
 from __future__ import annotations
 
-import os
 from typing import List, Dict, Any, Optional
 import requests
 
 from app.core.logger import log_info, log_error
+from app.core.config import settings
 
 
 class GooglePlacesClient:
     """Client for Google Places API integration."""
     
     def __init__(self):
-        self.api_key = os.getenv("GOOGLE_PLACES_API_KEY")
+        # Read via centralized settings (loaded from .env)
+        self.api_key = settings.google_places_api_key
         if not self.api_key:
             log_error("Google Places API key not found in environment")
+        # Legacy base URL (v0)
         self.base_url = "https://maps.googleapis.com/maps/api"
+        # New Places API v1 base URL
+        self.base_url_v1 = "https://places.googleapis.com/v1"
     
     def search_places(self, query: str, location: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Search for places using Google Places API."""
+        """Search for places using Google Places API.
+        Uses v1 places:searchText endpoint and returns the raw 'places' array.
+        """
         if not self.api_key:
             return []
         
         try:
-            url = f"{self.base_url}/place/textsearch/json"
-            params = {
-                "query": query,
-                "key": self.api_key
+            url = f"{self.base_url_v1}/places:searchText"
+            headers = {
+                "Content-Type": "application/json",
+                "X-Goog-Api-Key": self.api_key,
+                # Request fields we need (photos and display name)
+                "X-Goog-FieldMask": "places.photos"
             }
-            
-            if location:
-                params["location"] = location
-                params["radius"] = 50000  # 50km radius
-            
-            response = requests.get(url, params=params, timeout=10)
+            payload: Dict[str, Any] = {
+                "textQuery": query
+            }
+            # Optional: could add location bias in v1 via 'locationBias' if needed
+            response = requests.post(url, headers=headers, json=payload, timeout=10)
             response.raise_for_status()
+
             
+
             data = response.json()
-            places = data.get("results", [])
-            
-            log_info("Google Places search completed", query=query, results_count=len(places))
-            return places
+            name = None
+            places = data.get("places", [])
+            if places:
+                photos = places[0].get("photos", [])
+                if photos:
+                    name = photos[0].get("name")
+
+            log_info("Google Places v1 search completed", name=name)
+            return name
             
         except Exception as e:
             log_error("Google Places API error", error=str(e), query=query)
@@ -102,3 +116,14 @@ class GooglePlacesClient:
             return None
         
         return f"{self.base_url}/place/photo?maxwidth={max_width}&photoreference={photo_reference}&key={self.api_key}"
+
+    def get_photo_media_url(self, photo_name: str, max_width: int = 640) -> Optional[str]:
+        """Return a media URL for a photo object from either v1 (has 'name') or legacy (has 'photo_reference')."""
+        if not self.api_key or not photo_name:
+            return None
+
+        name = photo_name
+        if name:
+            # GET https://places.googleapis.com/v1/{name}/media?key=API_KEY&maxWidthPx=...
+            return f"{self.base_url_v1}/{name}/media?maxWidthPx={max_width}&key={self.api_key}"
+        return None

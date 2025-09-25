@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.core.logger import log_info, log_error
 from app.core.config import settings
+from app.clients.google_places_client import GooglePlacesClient
 
 
 class TravelSummary(BaseModel):
@@ -269,6 +270,11 @@ class TripConsensusGraph:
                 log_info("TripConsensus: using heuristic candidates fallback", candidate_count=len(candidates))
             
             log_info("TripConsensus: candidates generated", count=len(candidates))
+            # Enrich candidates with images before returning
+            try:
+                candidates = self._add_images_to_candidates(candidates)
+            except Exception as enrich_err:
+                log_error("TripConsensus: enriching candidates with images failed", error=str(enrich_err))
             return {
                 "candidates": candidates
             }
@@ -280,6 +286,42 @@ class TripConsensusGraph:
             return {
                 "candidates": self._heuristic_candidates(state.get("summary", {}))
             }
+
+    def _add_images_to_candidates(self, candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Attach an image URL to each candidate using Google Places photos when possible,
+        else fall back to an Unsplash featured image. Adds both 'image' and 'image_url' keys for UI compatibility.
+        """
+        if not candidates:
+            return candidates
+        # Initialize client (safe if no API key)
+        places_client: Optional[GooglePlacesClient] = None
+        try:
+            places_client = GooglePlacesClient()
+        except Exception:
+            places_client = None
+
+        enriched: List[Dict[str, Any]] = []
+        for c in candidates:
+            name = c.get("place_name") or c.get("place") or c.get("name") or c.get("title")
+            photo_url: Optional[str] = None
+            if name and places_client and getattr(places_client, "api_key", None):
+                try:
+                    res = places_client.search_places(str(name))
+                    if res:
+                        photo_url = places_client.get_photo_media_url(res, max_width=640)
+                except Exception:
+                    photo_url = None
+
+            if not photo_url and name:
+                query = str(name).replace(" ", "+")
+                photo_url = f"https://source.unsplash.com/featured/?{query}"
+
+            if photo_url:
+                enriched.append({**c, "image": photo_url, "image_url": photo_url})
+            else:
+                enriched.append(c)
+
+        return enriched
     
     def _place_selection(self, state: TripConsensusState) -> Dict[str, Any]:
         """Intelligently select/reduce places based on user preferences and messages."""

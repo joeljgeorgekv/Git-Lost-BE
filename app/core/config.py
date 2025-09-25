@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     openai_api_key: str | None = None
+    google_places_api_key: str | None = None
     
     # LangSmith Configuration
     langchain_tracing_v2: bool = False
