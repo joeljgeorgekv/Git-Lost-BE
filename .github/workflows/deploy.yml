@@ -101,7 +101,11 @@ jobs:
               sudo apt-get update -y && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin unzip
             fi
             # Login to ECR on EC2 using password computed in CI
-            echo "${ECR_PASSWORD}" | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+            if [ -z "${ECR_PASSWORD:-}" ]; then
+              echo "ECR_PASSWORD is empty or not set; cannot login to ECR" >&2
+              exit 1
+            fi
+            printf "%s" "${ECR_PASSWORD}" | sudo docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
 
             # Pull latest image
             sudo docker pull "${IMAGE_URI}"
