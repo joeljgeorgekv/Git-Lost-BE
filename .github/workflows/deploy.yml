@@ -78,8 +78,9 @@ jobs:
           echo "IMAGE_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Get ECR password
+        id: ecrpwd
         run: |
-          echo "ECR_PASSWORD=$(aws ecr get-login-password --region \"${{ env.AWS_REGION }}\")" >> $GITHUB_ENV
+          echo "password=$(aws ecr get-login-password --region '${{ env.AWS_REGION }}')" >> $GITHUB_OUTPUT
 
       - name: Deploy over SSH to EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -88,6 +89,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: IMAGE_URI,AWS_REGION,ECR_REPOSITORY,CONTAINER_NAME,APP_PORT,HOST_PORT,ECR_PASSWORD
+        env:
+          ECR_PASSWORD: ${{ steps.ecrpwd.outputs.password }}
           script: |
             set -euo pipefail
             echo "Deploying ${IMAGE_URI} to ${HOSTNAME}"
