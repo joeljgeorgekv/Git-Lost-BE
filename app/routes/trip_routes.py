@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.logger import log_info, log_error
-from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, JoinTripResponse
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, JoinTripResponse, TripMembersResponse
 from app.services.trip_service import TripService
 from app.models.user import User
 from app.models.trip import Trip
@@ -77,3 +77,13 @@ def list_trips_for_user(username: str, db: Session = Depends(get_db)) -> ListTri
         if str(e) == "user_not_found":
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="failed to list trips")
+
+
+@router.get("/{trip_id}/members", status_code=status.HTTP_200_OK, response_model=TripMembersResponse)
+def get_trip_members(trip_id: str, db: Session = Depends(get_db)) -> TripMembersResponse:
+    try:
+        return service.get_trip_members(db, trip_id)
+    except ValueError as e:
+        if str(e) == "trip_not_found":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="trip not found")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="failed to get trip members")

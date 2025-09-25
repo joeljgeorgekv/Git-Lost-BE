@@ -8,7 +8,7 @@ from app.models.trip_user import TripUser
 from app.models.trip_chat import TripChatMessage
 from app.models.user import User
 from app.core.logger import log_info, log_error
-from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, TripSummary, JoinTripResponse
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, TripSummary, JoinTripResponse, TripMembersResponse
 
 
 class TripService:
@@ -167,3 +167,24 @@ class TripService:
         db.commit()
         log_info("user added to trip by code", trip_id=str(trip.id), trip_code=code, user_id=str(payload.user_id))
         return JoinTripResponse(trip_id=trip.id, trip_name=trip.trip_name)
+
+    def get_trip_members(self, db: Session, trip_id: uuid.UUID) -> TripMembersResponse:
+        # Validate trip exists
+        trip: Optional[Trip] = db.query(Trip).filter(Trip.id == trip_id).first()
+        if trip is None:
+            log_error("get trip members failed - trip not found", trip_id=str(trip_id))
+            raise ValueError("trip_not_found")
+
+        # Join TripUser -> User to fetch usernames
+        user_ids = (
+            db.query(TripUser.user_id)
+            .filter(TripUser.trip_id == trip_id)
+            .all()
+        )
+        flat_user_ids = [uid for (uid,) in user_ids]
+        if not flat_user_ids:
+            return TripMembersResponse(members=[])
+
+        users = db.query(User.username).filter(User.id.in_(flat_user_ids)).all()
+        member_names = [u for (u,) in users]
+        return TripMembersResponse(members=member_names)
