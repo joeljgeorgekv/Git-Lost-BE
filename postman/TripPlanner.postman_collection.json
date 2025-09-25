@@ -115,6 +115,241 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "POST /trips/add-user",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trip_id\": \"{{tripId}}\",\n  \"user_id\": \"{{userId2}}\",\n  \"date_ranges\": [\n    \"10-10-2025 - 15-10-2025\"\n  ],\n  \"preferred_places\": [\n    \"Manali\"\n  ],\n  \"budget\": 18000,\n  \"preferences\": [\n    \"Adventure\"\n  ],\n  \"must_haves\": [\n    \"WiFi\",\n    \"Nightlife\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/trips/add-user",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "trips",
+                "add-user"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "GET /chat/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/chat/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /chat/group-plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Hey guys, I'm thinking we should plan a trip for next month. What do you think?\",\n      \"user\": \"Alice\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Sounds great! I'm free from April 15-20. What's the budget?\",\n      \"user\": \"Bob\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"I can do around $800 per person. Maybe somewhere tropical?\",\n      \"user\": \"Charlie\"\n    }\n  ],\n  \"previous_summary\": null,\n  \"days\": 5,\n  \"model\": \"gpt-3.5-turbo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat/group-plan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat",
+                "group-plan"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Travel Planning",
+      "item": [
+        {
+          "name": "GET /travel/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/travel/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "travel",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /travel/plan - Place Suggestions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"We want to go somewhere tropical with beaches and good food\",\n      \"user\": \"Alice\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Budget is around $800 per person for 5 days\",\n      \"user\": \"Bob\"\n    }\n  ],\n  \"stage\": \"place_suggestions\",\n  \"origin_city\": \"Delhi\",\n  \"budget_range\": \"mid-range\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/travel/plan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "travel",
+                "plan"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /travel/plan - Trip Overview",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"We decided on Bali! Can you create a trip plan?\",\n      \"user\": \"Alice\"\n    }\n  ],\n  \"stage\": \"trip_overview\",\n  \"selected_place\": \"Bali\",\n  \"selected_dates\": \"April 15-20, 2025\",\n  \"origin_city\": \"Delhi\",\n  \"budget_range\": \"mid-range\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/travel/plan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "travel",
+                "plan"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /travel/plan - Flights",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Show me flight options to Bali\",\n      \"user\": \"Alice\"\n    }\n  ],\n  \"stage\": \"flights\",\n  \"selected_place\": \"Bali\",\n  \"selected_dates\": \"April 15-20, 2025\",\n  \"origin_city\": \"Delhi\",\n  \"budget_range\": \"mid-range\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/travel/plan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "travel",
+                "plan"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /travel/plan - Hotels",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Now show me hotel options in Bali\",\n      \"user\": \"Alice\"\n    }\n  ],\n  \"stage\": \"hotels\",\n  \"selected_place\": \"Bali\",\n  \"selected_dates\": \"April 15-20, 2025\",\n  \"selected_flight\": \"IndiGo 6E 1234\",\n  \"origin_city\": \"Delhi\",\n  \"budget_range\": \"mid-range\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/travel/plan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "travel",
+                "plan"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "POST /travel/plan - Detailed Itinerary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Create our detailed day-by-day itinerary for Bali\",\n      \"user\": \"Alice\"\n    }\n  ],\n  \"stage\": \"detailed_itinerary\",\n  \"selected_place\": \"Bali\",\n  \"selected_dates\": \"April 15-20, 2025\",\n  \"selected_flight\": \"IndiGo 6E 1234\",\n  \"selected_hotel\": \"Ubud Village Resort\",\n  \"origin_city\": \"Delhi\",\n  \"budget_range\": \"mid-range\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/travel/plan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "travel",
+                "plan"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     }

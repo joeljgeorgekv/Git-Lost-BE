@@ -9,6 +9,7 @@ from app.routes.trip_routes import router as trip_router
 from app.core.database import init_db
 from app.routes.clean_chat_routes import router as chat_router
 from app.routes.booking import router as booking_router
+from app.routes.travel_planning_routes import router as travel_router
 
 app = FastAPI(title="Trip Planner Service", version="0.1.0")
 
@@ -19,6 +20,7 @@ app.include_router(user_router)
 app.include_router(trip_router)
 app.include_router(chat_router)
 app.include_router(booking_router)
+app.include_router(travel_router)
 
 
 @app.middleware("http")
