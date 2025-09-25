@@ -8,12 +8,12 @@ from typing import Any, Dict, Tuple, List
 import requests
 
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "http://127.0.0.1:8002"
 
 
 def _post(path: str, payload: Dict[str, Any]) -> Tuple[int, Any]:
     url = f"{BASE_URL}{path}"
-    r = requests.post(url, json=payload, timeout=20)
+    r = requests.post(url, json=payload, timeout=200)
     try:
         data = r.json() if r.content else {}
     except Exception:
@@ -119,6 +119,75 @@ def list_chats(trip_id: str) -> List[Dict[str, Any]]:
     return data
 
 
+def reach_consensus(trip_id: str) -> Dict[str, Any]:
+    """Call the reach-consensus endpoint to process NEW messages and get consensus state."""
+    code, data = _post(f"/chats/reach-consensus?trip_id={trip_id}", {})
+    if code != 200 or not isinstance(data, dict):
+        raise RuntimeError(f"reach consensus failed: {code} {data}")
+    
+    consensus_data = data.get("data", {})
+    status = consensus_data.get("status", "unknown")
+    
+    print(f"[consensus] Status: {status}")
+    
+    # Print summary if available
+    summary = consensus_data.get("summary", {})
+    if summary:
+        print(f"[consensus] Summary: {json.dumps(summary, indent=2)}")
+    
+    # Print candidates if available
+    candidates = consensus_data.get("candidates", [])
+    if candidates:
+        print(f"[consensus] Candidates ({len(candidates)}):")
+        for i, candidate in enumerate(candidates, 1):
+            print(f"  {i}. {candidate.get('place_name')} - {candidate.get('budget')} - {candidate.get('why_it_matches', [])}")
+    
+    # Print consensus card if finalized
+    consensus_card = consensus_data.get("consensus_card")
+    if consensus_card:
+        print(f"[consensus] FINALIZED - Consensus Card:")
+        print(json.dumps(consensus_card, indent=2))
+    
+    return consensus_data
+
+
+def test_consensus_flow(trip_id: str) -> None:
+    """Test the complete consensus flow with multiple message rounds."""
+    print("\n=== Testing Consensus Flow ===")
+    
+    # Round 1: Initial preferences
+    print("\n--- Round 1: Initial Preferences ---")
+    chat(trip_id, "alice", "I want to visit Italy from 2025-05-15 to 2025-05-22. Budget around $1500 per person.")
+    chat(trip_id, "bob", "I love history and food! Rome sounds amazing.")
+    
+    # Run consensus
+    consensus1 = reach_consensus(trip_id)
+    
+    # Round 2: More specific preferences
+    print("\n--- Round 2: More Specific Preferences ---")
+    chat(trip_id, "alice", "I also want to see Florence and maybe some museums.")
+    chat(trip_id, "bob", "Barcelona could be nice too, but I prefer Italy for the culture.")
+    
+    # Run consensus again
+    consensus2 = reach_consensus(trip_id)
+    
+    # Round 3: Narrowing down
+    print("\n--- Round 3: Narrowing Down ---")
+    chat(trip_id, "alice", "Let's focus on Rome. It has everything we want - history, food, museums.")
+    
+    # Run consensus final time
+    consensus3 = reach_consensus(trip_id)
+    
+    # Test calling consensus again with no new messages
+    print("\n--- Round 4: No New Messages (should return cached state) ---")
+    consensus4 = reach_consensus(trip_id)
+    
+    print(f"\n=== Consensus Flow Complete ===")
+    print(f"Final Status: {consensus4.get('status')}")
+    
+    return consensus4
+
+
 def main() -> None:
     print("== Trip Planner End-to-End Demo ==")
     print(f"Base URL: {BASE_URL}\n")
@@ -137,19 +206,48 @@ def main() -> None:
     # 4) Add Bob to the trip
     add_user_to_trip(trip_id, bob_id)
 
-    # 5) Post chats from both users
+    # 5) Test basic chat functionality
+    print("\n=== Basic Chat Test ===")
     chat(trip_id, "alice", "Hey! Shall we target May 15-22 for Italy?")
     time.sleep(0.1)
     chat(trip_id, "bob", "Sounds great! I prefer Rome and Florence.")
     time.sleep(0.1)
-    chat(trip_id, "alice", "Awesome. I’ll check flights from NYC.")
+    chat(trip_id, "alice", "Awesome. I'll check flights from NYC.")
 
     # 6) List chats for the trip
     chats = list_chats(trip_id)
     print("\nChats:")
     print(json.dumps(chats, indent=2))
 
-    print("\nDone.")
+    # 7) Test consensus flow
+    final_consensus = test_consensus_flow(trip_id)
+
+    # 8) List all chats after consensus processing
+    print("\n=== Final Chat List (should show SUMMARIZED status) ===")
+    final_chats = list_chats(trip_id)
+    print(f"Total messages: {len(final_chats)}")
+
+    print("\n=== Demo Complete ===")
+    print(f"Trip ID: {trip_id}")
+    print(f"Final Consensus Status: {final_consensus.get('status')}")
+    if final_consensus.get('consensus_card'):
+        print("✅ Consensus reached with finalized travel card!")
+    else:
+        print(f"📋 Multiple candidates available: {len(final_consensus.get('candidates', []))}")
+
+
+def main_consensus_only() -> None:
+    """Alternative main function that only tests consensus flow on existing trip."""
+    print("== Consensus Flow Test Only ==")
+    print(f"Base URL: {BASE_URL}\n")
+    
+    # Use hardcoded trip ID for quick testing (replace with actual trip ID)
+    trip_id = "your-trip-id-here"  # Uncomment and set this for quick testing
+    
+    print("To test consensus only, uncomment and set trip_id in main_consensus_only()")
+    print("Then call main_consensus_only() instead of main()")
+    
+    test_consensus_flow(trip_id)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,13 @@ class Settings(BaseSettings):
 
     environment: str = "development"
     openai_api_key: str | None = None
+    
+    # LangSmith Configuration
+    langchain_tracing_v2: bool = False
+    langchain_endpoint: str = "https://api.smith.langchain.com"
+    langsmith_api_key: str | None = None
+    langchain_project: str = "trip-planner-consensus"
+    
     # Database & auth placeholders
     database_url: str | None = None  # e.g. postgresql+psycopg://user:pass@host:5432/db
     jwt_secret: str | None = None

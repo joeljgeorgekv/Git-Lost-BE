@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from typing import Optional
-import uuid
 from sqlalchemy.orm import Session
-
 from app.models.trip import Trip
 from app.models.trip_user import TripUser
 from app.models.user import User
 from app.core.logger import log_info, log_error
-from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, CreateTripResponse, ListTripsResponse, TripSummary
+
 
 class TripService:
     """Encapsulates trip-related business logic."""
@@ -16,8 +15,8 @@ class TripService:
     def __init__(self) -> None:
         # If you later need external services, inject them here
         pass
-
-    def create_group_trip(self, db: Session, payload: CreateGroupTripRequest) -> uuid.UUID:
+    
+    def create_group_trip(self, db: Session, payload: CreateGroupTripRequest) -> CreateTripResponse:
         # Validate user exists
         user: Optional[User] = db.query(User).filter(User.id == payload.user_id).first()
         if user is None:
@@ -43,7 +42,7 @@ class TripService:
         db.add(tu)
         db.commit()
         log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id))
-        return trip.id
+        return CreateTripResponse(trip_id=trip.id)
 
     def add_user_to_trip(self, db: Session, payload: AddUserToTripRequest) -> None:
         # Validate trip exists
@@ -84,8 +83,8 @@ class TripService:
         db.commit()
         log_info("user added to trip", trip_id=str(payload.trip_id), user_id=str(payload.user_id))
 
-    def list_trips_for_username(self, db: Session, username: str) -> list[dict]:
-        """Return trips for a given username as list of {id, trip_name}.
+    def list_trips_for_username(self, db: Session, username: str) -> ListTripsResponse:
+        """Return trips for a given username as ListTripsResponse.
 
         Raises ValueError('user_not_found') if the username does not exist.
         """
@@ -102,4 +101,5 @@ class TripService:
             .all()
         )
 
-        return [{"id": str(t.id), "trip_name": t.trip_name} for t in trips]
+        trip_summaries = [TripSummary(id=str(t.id), trip_name=t.trip_name) for t in trips]
+        return ListTripsResponse(trips=trip_summaries)

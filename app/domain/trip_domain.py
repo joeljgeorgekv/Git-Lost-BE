@@ -15,6 +15,18 @@ class CreateGroupTripRequest(BaseModel):
     preferences: list[str] | None = None
     must_haves: list[str] | None = None
 
+class CreateTripResponse(BaseModel):
+    trip_id: uuid.UUID
+
+
+class TripSummary(BaseModel):
+    id: str  # UUID as string for client compatibility
+    trip_name: str
+
+
+class ListTripsResponse(BaseModel):
+    trips: list[TripSummary]
+
 
 class AddUserToTripRequest(BaseModel):
     trip_id: uuid.UUID

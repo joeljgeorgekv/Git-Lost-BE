@@ -5,15 +5,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.logger import log_info, log_error
-from app.domain.user_domain import SignupRequest, LoginRequest
+from app.domain.user_domain import SignupRequest, LoginRequest, SignupResponse, LoginResponse
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])  # Hackathon-simple auth
 service = UserService()
 
 
-@router.post("/signup")
-def signup(payload: SignupRequest, db: Session = Depends(get_db)):
+@router.post("/signup", response_model=SignupResponse)
+def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> SignupResponse:
     try:
         return service.signup(db, payload)
     except ValueError as e:
@@ -22,8 +22,8 @@ def signup(payload: SignupRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="signup failed")
 
 
-@router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@router.post("/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)) -> LoginResponse:
     try:
         return service.login(db, payload)
     except ValueError as e:

@@ -7,6 +7,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.models.trip_chat import TripChatMessage
 from app.schemas.trip_chat_schema import TripChatCreate, TripChatResponse
+from app.schemas.consensus_chat_schema import ConsensusChatResponse
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -30,7 +31,6 @@ def get_chats(trip_id: UUID, db: Session = Depends(get_db)) -> list[TripChatResp
         for r in rows
     ]
 
-@router.post("/", response_model=TripChatResponse, status_code=status.HTTP_201_CREATED)
 @router.post("", response_model=TripChatResponse, status_code=status.HTTP_201_CREATED)
 def create_chat(payload: TripChatCreate, db: Session = Depends(get_db)) -> TripChatResponse:
     """Create a chat message linked to a trip.
@@ -72,3 +72,146 @@ def create_chat(payload: TripChatCreate, db: Session = Depends(get_db)) -> TripC
         )
 
 # Placeholder removed; use POST /chats/ defined above
+
+@router.post("/reach-consensus", response_model=ConsensusChatResponse)
+def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusChatResponse:
+    """Process NEW messages for a trip using LangGraph consensus flow with persistent state.
+    
+    Flow:
+    1. Fetch or create TripConsensus record for the trip
+    2. Fetch NEW messages since last processing
+    3. If new messages exist, run LangGraph to update consensus state
+    4. Save updated state to database
+    5. Mark processed messages as SUMMARIZED
+    6. Return current consensus state
+    """
+    from app.langgraph.graphs.trip_consensus_graph import TripConsensusGraph
+    from app.models.trip_consensus import TripConsensus
+    from app.core.logger import log_info, log_error
+    
+    try:
+        # 1) Fetch or create TripConsensus record
+        log_info("reach_consensus: fetching consensus record", trip_id=str(trip_id))
+        consensus_record = db.query(TripConsensus).filter(TripConsensus.trip_id == trip_id).first()
+        
+        if not consensus_record:
+            # Create new consensus record
+            log_info("reach_consensus: creating new consensus record", trip_id=str(trip_id))
+            consensus_record = TripConsensus(
+                trip_id=trip_id,
+                status="processing",
+                summary={},
+                candidates=[],
+                consensus_card=None,
+                last_processed_message_id=None
+            )
+            db.add(consensus_record)
+            db.flush()  # Get the ID
+            log_info("reach_consensus: created new consensus record", trip_id=str(trip_id), record_id=str(consensus_record.id))
+        else:
+            log_info("reach_consensus: found existing consensus record", trip_id=str(trip_id), current_status=consensus_record.status)
+        
+        # 2) Fetch NEW messages since last processing
+        log_info("reach_consensus: fetching NEW messages", trip_id=str(trip_id))
+        query = db.query(TripChatMessage).filter(
+            TripChatMessage.trip_id == trip_id,
+            TripChatMessage.chat_status == TripChatMessage.ChatStatus.NEW,
+        )
+        
+        # If we have a last processed message, only get newer ones
+        if consensus_record.last_processed_message_id:
+            log_info("reach_consensus: filtering messages after last processed", last_processed_id=str(consensus_record.last_processed_message_id))
+            query = query.filter(TripChatMessage.id > consensus_record.last_processed_message_id)
+        
+        new_rows: list[TripChatMessage] = query.order_by(TripChatMessage.created_at.asc()).all()
+        log_info("reach_consensus: found NEW messages", count=len(new_rows))
+        
+        # 3) Check if we have new messages to process
+        if not new_rows:
+            # No new messages, return existing state
+            data = {
+                "status": consensus_record.status,
+                "trip_id": str(trip_id),
+                "summary": consensus_record.summary or {},
+                "candidates": consensus_record.candidates or [],
+            }
+            if consensus_record.consensus_card:
+                data["consensus_card"] = consensus_record.consensus_card
+            
+            return ConsensusChatResponse(data=data)
+        
+        # 4) Prepare messages for LangGraph
+        new_messages = [
+            {
+                "id": str(r.id),
+                "username": r.username,
+                "message": r.message,
+                "created_at": r.created_at.isoformat(),
+            }
+            for r in new_rows
+        ]
+        
+        # 5) Build LangGraph state from existing consensus + new messages
+        graph = TripConsensusGraph()
+        init_state = {
+            "trip_id": str(trip_id),
+            "new_messages": new_messages,
+            "summary": consensus_record.summary,  # Start with existing summary
+            "candidates": consensus_record.candidates or [],  # Start with existing candidates
+            "selected_places": [],  # Will be populated by place_selection node
+            "consensus_card": consensus_record.consensus_card,
+            "status": "processing",
+            "next_node": None,
+        }
+        
+        # 6) Run LangGraph consensus flow
+        result = graph.process(init_state)
+        
+        # 7) Update consensus record with new state
+        if result.get("status") != "error":
+            consensus_record.status = result.get("status", "processing")
+            consensus_record.summary = result.get("summary", consensus_record.summary)
+            consensus_record.candidates = result.get("candidates", consensus_record.candidates)
+            consensus_record.consensus_card = result.get("consensus_card", consensus_record.consensus_card)
+            
+            # Track the last processed message
+            if new_rows:
+                consensus_record.last_processed_message_id = new_rows[-1].id
+                
+                # Mark messages as SUMMARIZED
+                for r in new_rows:
+                    r.chat_status = TripChatMessage.ChatStatus.SUMMARIZED
+            
+            db.commit()
+            log_info("Updated consensus state", trip_id=str(trip_id), status=consensus_record.status)
+        
+        # 8) Build response data
+        data = {
+            "status": consensus_record.status,
+            "trip_id": str(trip_id),
+            "summary": consensus_record.summary or {},
+            "candidates": consensus_record.candidates or [],
+        }
+        
+        if consensus_record.consensus_card:
+            data["consensus_card"] = consensus_record.consensus_card
+        
+        return ConsensusChatResponse(data=data)
+        
+    except Exception as e:
+        db.rollback()
+        import traceback
+        error_details = traceback.format_exc()
+        log_error("reach_consensus failed", 
+                 error=str(e), 
+                 traceback=error_details,
+                 trip_id=str(trip_id))
+        
+        return ConsensusChatResponse(data={
+            "status": "error",
+            "trip_id": str(trip_id),
+            "summary": {},
+            "candidates": [],
+            "error": f"Processing failed: {str(e)}",
+            "traceback": error_details
+        })
