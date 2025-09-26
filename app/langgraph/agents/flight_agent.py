@@ -141,6 +141,80 @@ class FlightAgent:
 
         Shape matches what a card component needs (times, codes, airline, price, cabin, stops).
         """
+        # Kochi -> Mumbai curated set
+        if origin_code.upper() == "COK" and dest_code.upper() in ("BOM", "BOM"):
+            cards: List[Dict[str, Any]] = [
+                {
+                    "airline": "Akasa Air",
+                    "flight_code": "QP 1519",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "11:50",
+                    "arrival_time": "13:55",
+                    "duration": "2h 05m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": date,
+                    "price_current": "₹4,681" if currency == "INR" else "$56",
+                    "price_strike": "₹4,969" if currency == "INR" else "$60",
+                },
+                {
+                    "airline": "SpiceJet",
+                    "flight_code": "SG 132",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "17:20",
+                    "arrival_time": "19:25",
+                    "duration": "2h 05m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": date,
+                    "price_current": "₹4,844" if currency == "INR" else "$58",
+                    "price_strike": "₹5,434" if currency == "INR" else "$65",
+                },
+                {
+                    "airline": "Air India",
+                    "flight_code": "AI 2670",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "22:30",
+                    "arrival_time": "00:50 +1",
+                    "duration": "2h 20m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": date,
+                    "price_current": "₹5,541" if currency == "INR" else "$66",
+                    "price_strike": "₹5,881" if currency == "INR" else "$70",
+                },
+                {
+                    "airline": "IndiGo",
+                    "flight_code": "6E 662",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "07:55",
+                    "arrival_time": "09:50",
+                    "duration": "1h 55m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": date,
+                    "price_current": "₹5,590" if currency == "INR" else "$67",
+                    "price_strike": "₹5,958" if currency == "INR" else "$71",
+                },
+            ]
+            return cards
+
         cards: List[Dict[str, Any]] = [
             {
                 "airline": "Air India",

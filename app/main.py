@@ -15,6 +15,8 @@ from app.routes.trip_routes import router as trip_router
 from app.routes.user_routes import router as user_router
 from app.routes.consensus_chat_routes import router as consensus_chat_router
 from app.routes.hotel_routes import router as hotel_router
+from app.routes.flight_routes import router as flight_router
+from app.routes.itinerary_routes import router as itinerary_router
 
 def _setup_langsmith():
     """Setup LangSmith tracing if configured."""
@@ -81,6 +83,8 @@ app.include_router(trip_router)
 app.include_router(chat_router)
 app.include_router(consensus_chat_router)
 app.include_router(hotel_router)
+app.include_router(flight_router)
+app.include_router(itinerary_router)
 
 
 @app.middleware("http")
