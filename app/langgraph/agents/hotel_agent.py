@@ -134,7 +134,8 @@ class HotelAgent:
             {
                 "name": "Hotel Royal Onix",
                 "rating": 4.2,
-                "price_per_night": "₹2,500/night",
+                "price_per_night": "₹2,500",
+                "total_price": "₹5,000",
                 "price_currency": "INR",
                 "location": "Andheri West",
                 "amenities": ["Wi‑Fi", "AC Rooms", "Room Service"],
@@ -148,7 +149,8 @@ class HotelAgent:
             {
                 "name": "Hotel Mid-Town",
                 "rating": 4.1,
-                "price_per_night": "₹2,900/night",
+                "price_per_night": "₹2,900",
+                "total_price": "₹5,800",
                 "price_currency": "INR",
                 "location": "Andheri West (near Andheri Station)",
                 "amenities": ["Wi‑Fi", "Restaurant", "Airport Shuttle"],
@@ -162,7 +164,8 @@ class HotelAgent:
             {
                 "name": "Hotel Bawa Continental",
                 "rating": 4.3,
-                "price_per_night": "₹5,500/night",
+                "price_per_night": "₹5,500",
+                "total_price": "₹11,000",
                 "price_currency": "INR",
                 "location": "Juhu",
                 "amenities": ["Beach Access", "Restaurant", "Concierge"],
@@ -176,7 +179,8 @@ class HotelAgent:
             {
                 "name": "Hotel Lucky",
                 "rating": 4.0,
-                "price_per_night": "₹3,800/night",
+                "price_per_night": "₹3,800",
+                "total_price": "₹7,600",
                 "price_currency": "INR",
                 "location": "Bandra West",
                 "amenities": ["Wi‑Fi", "Restaurant"],
@@ -190,7 +194,8 @@ class HotelAgent:
             {
                 "name": "Wind Flower Residency",
                 "rating": 4.1,
-                "price_per_night": "₹3,500/night",
+                "price_per_night": "₹3,500",
+                "total_price": "₹7,000",
                 "price_currency": "INR",
                 "location": "Bandra West",
                 "amenities": ["Wi‑Fi", "Room Service", "Laundry"],
@@ -209,10 +214,10 @@ class HotelAgent:
         self,
         destination: str,
         budget_range: str = "mid-range",
-        travelers: int = 2,
-        rooms: int = 1,
-        check_in: str = "2025-05-01",
-        check_out: str = "2025-05-06",
+        travelers: int = 4,
+        rooms: int = 2,
+        check_in: str = "2025-10-03",
+        check_out: str = "2025-10-05",
     ) -> List[Dict[str, Any]]:
         """Return a list of HotelBookingDetails-shaped dicts for the given destination.
 
@@ -265,7 +270,7 @@ class HotelAgent:
                     "room_rate_total": per_night,
                     "taxes_and_fees": "Included",
                     "discounts": "₹0" if currency == "INR" else "$0",
-                    "total": per_night,
+                    "total": c.get("total_price"),
                 },
             })
 

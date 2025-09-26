@@ -10,7 +10,7 @@ router = APIRouter(prefix="/itinerary", tags=["itinerary"])
 MOCK_MUMBAI_ITINERARY: List[Dict[str, Any]] = [
   {
     "day": 1,
-    "date": "Thu, May 1",
+    "date": "Fri, Oct 3",
     "title": "Kochi to Mumbai & Hotel Check-in",
     "stops": [
       {
@@ -53,7 +53,7 @@ MOCK_MUMBAI_ITINERARY: List[Dict[str, Any]] = [
   },
   {
     "day": 2,
-    "date": "Fri, May 2",
+    "date": "Sat, Oct 4",
     "title": "South Mumbai Sightseeing",
     "stops": [
       {
@@ -96,7 +96,7 @@ MOCK_MUMBAI_ITINERARY: List[Dict[str, Any]] = [
   },
   {
     "day": 3,
-    "date": "Sat, May 3",
+    "date": "Sun, Oct 5",
     "title": "Bandra & Flight Back",
     "stops": [
       {

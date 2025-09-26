@@ -18,16 +18,16 @@ def get_all_bookings_mock(
     origin_city: str = Query("Kochi", description="Origin city name e.g., Kochi"),
     dest_code: str = Query("BOM", description="Destination IATA code e.g., BOM"),
     dest_city: str = Query("Mumbai", description="Destination city name e.g., Mumbai"),
-    flight_date: str = Query("2025-05-01", description="Flight date YYYY-MM-DD"),
-    travelers: int = Query(2, ge=1),
+    flight_date: str = Query("2025-10-03", description="Flight date YYYY-MM-DD"),
+    travelers: int = Query(4, ge=1),
     currency: str = Query("INR"),
     cabin: str = Query("Economy"),
     # Hotels
     destination: str = Query("Mumbai"),
     budget_range: str = Query("mid-range"),
-    rooms: int = Query(1, ge=1),
-    check_in: str = Query("2025-05-01"),
-    check_out: str = Query("2025-05-03"),
+    rooms: int = Query(2, ge=1),
+    check_in: str = Query("2025-10-03"),
+    check_out: str = Query("2025-10-05"),
 ) -> Dict[str, Any]:
     """Return mock booking payloads only for items present in the itinerary.
 
@@ -40,15 +40,39 @@ def get_all_bookings_mock(
     flight_agent = FlightAgent()
     hotel_agent = HotelAgent()
 
-    flights = flight_agent.mock_flight_bookings_for_ui(
-        origin_code=origin_code,
-        origin_city=origin_city,
-        dest_code=dest_code,
-        dest_city=dest_city,
-        date=flight_date,
-        travelers=travelers,
-        currency=currency,
-    )
+    flights = [
+            {
+                "airline": "Akasa Air",
+                "flight_code": "QP 1519",
+                "route": "COK → BOM",
+                "duration": "2h 05m",
+                "stops_text": "Non stop",
+                "date": "2025-10-03",
+                "cabin": "Economy",
+                "price_current": "₹4,681",
+                "price_strike": "₹4,969",
+                "savings": "₹288",
+                "travelers": 4,
+                "total": "₹18,724",
+                "type": "Flight",
+            },
+            {
+                "airline": "SpiceJet",
+                "flight_code": "SG 132",
+                "route": "BOM → COK",
+                "duration": "2h 05m",
+                "stops_text": "Non stop",
+                "date": "2025-10-05",
+                "cabin": "Economy",
+                "price_current": "₹4,844",
+                "price_strike": "₹5,434",
+                "savings": "₹590",
+                "travelers": 4,
+                "total": "₹19,376",
+                "type": "Flight",
+            },
+        ]
+        
 
     hotels = hotel_agent.mock_hotel_bookings_for_ui(
         destination=destination,
