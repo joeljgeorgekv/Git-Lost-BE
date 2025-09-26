@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from typing import Optional
+import random
 from sqlalchemy.orm import Session
 from app.models.trip import Trip
 from app.models.trip_user import TripUser
 from app.models.trip_chat import TripChatMessage
 from app.models.user import User
 from app.core.logger import log_info, log_error
-from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, CreateTripResponse, ListTripsResponse, TripSummary
+from app.domain.trip_domain import CreateGroupTripRequest, AddUserToTripRequest, AddUserToTripByCodeRequest, CreateTripResponse, ListTripsResponse, TripSummary, JoinTripResponse, TripMembersResponse
 
 
 class TripService:
@@ -24,8 +25,9 @@ class TripService:
             log_error("create trip failed - user not found", user_id=str(payload.user_id))
             raise ValueError("user_not_found")
 
-        # Create trip
-        trip = Trip(trip_name=payload.trip_name)
+        # Create trip with unique numeric code (6-8 digits)
+        trip_code: str = self._generate_unique_trip_code(db)
+        trip = Trip(trip_name=payload.trip_name, trip_code=trip_code)
         db.add(trip)
         # Ensure trip.id is generated before using it in TripUser
         db.flush()
@@ -42,8 +44,23 @@ class TripService:
         )
         db.add(tu)
         db.commit()
-        log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id))
-        return CreateTripResponse(trip_id=trip.id)
+        log_info("trip created", trip_id=str(trip.id), user_id=str(payload.user_id), trip_code=trip.trip_code)
+        return CreateTripResponse(trip_id=trip.id, trip_code=trip.trip_code)
+
+    def _generate_unique_trip_code(self, db: Session) -> str:
+        """Generate a unique 6-8 digit numeric code for a trip.
+
+        Tries random codes and checks uniqueness in the database. Uses increasing
+        length if collisions occur.
+        """
+        for length in (6, 7, 8):
+            for _ in range(100):
+                candidate = str(random.randint(10 ** (length - 1), (10 ** length) - 1))
+                exists = db.query(Trip).filter(Trip.trip_code == candidate).first() is not None
+                if not exists:
+                    return candidate
+        # As a fallback, append a random suffix to a 8-digit base
+        return str(random.randint(10 ** 7, (10 ** 8) - 1))
 
     def add_user_to_trip(self, db: Session, payload: AddUserToTripRequest) -> None:
         # Validate trip exists
@@ -114,8 +131,60 @@ class TripService:
                 TripSummary(
                     id=str(t.id),
                     trip_name=t.trip_name,
+                    trip_code=t.trip_code,
                     latest_message=(last_msg.message if last_msg else None),
                     latest_message_at=(last_msg.created_at.isoformat() if last_msg else None),
                 )
             )
         return ListTripsResponse(trips=trip_summaries)
+
+    def add_user_to_trip_by_code(self, db: Session, code: str, payload: AddUserToTripByCodeRequest) -> JoinTripResponse:
+        # Validate trip exists by code
+        trip: Optional[Trip] = db.query(Trip).filter(Trip.trip_code == code).first()
+        if trip is None:
+            log_error("add user by code failed - trip not found", trip_code=code)
+            raise ValueError("trip_not_found")
+
+        # Validate user exists
+        user: Optional[User] = db.query(User).filter(User.id == payload.user_id).first()
+        if user is None:
+            log_error("add user by code failed - user not found", user_id=str(payload.user_id))
+            raise ValueError("user_not_found")
+
+        # Upsert TripUser
+        tu: Optional[TripUser] = (
+            db.query(TripUser)
+            .filter(TripUser.trip_id == trip.id, TripUser.user_id == payload.user_id)
+            .first()
+        )
+        if tu is None:
+            tu = TripUser(
+                user_id=payload.user_id,
+                trip_id=trip.id,
+            )
+            db.add(tu)
+
+        db.commit()
+        log_info("user added to trip by code", trip_id=str(trip.id), trip_code=code, user_id=str(payload.user_id))
+        return JoinTripResponse(trip_id=trip.id, trip_name=trip.trip_name)
+
+    def get_trip_members(self, db: Session, trip_id: uuid.UUID) -> TripMembersResponse:
+        # Validate trip exists
+        trip: Optional[Trip] = db.query(Trip).filter(Trip.id == trip_id).first()
+        if trip is None:
+            log_error("get trip members failed - trip not found", trip_id=str(trip_id))
+            raise ValueError("trip_not_found")
+
+        # Join TripUser -> User to fetch usernames
+        user_ids = (
+            db.query(TripUser.user_id)
+            .filter(TripUser.trip_id == trip_id)
+            .all()
+        )
+        flat_user_ids = [uid for (uid,) in user_ids]
+        if not flat_user_ids:
+            return TripMembersResponse(members=[])
+
+        users = db.query(User.username).filter(User.id.in_(flat_user_ids)).all()
+        member_names = [u for (u,) in users]
+        return TripMembersResponse(members=member_names)

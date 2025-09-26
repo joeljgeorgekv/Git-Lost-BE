@@ -3,11 +3,14 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from uuid import UUID
+from datetime import datetime
 
 from app.core.database import get_db
 from app.models.trip_chat import TripChatMessage
 from app.schemas.trip_chat_schema import TripChatCreate, TripChatResponse
 from app.schemas.consensus_chat_schema import ConsensusChatResponse
+from app.models.trip_consensus import TripConsensus
+from app.core.logger import log_info
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 
@@ -27,6 +30,7 @@ def get_chats(trip_id: UUID, db: Session = Depends(get_db)) -> list[TripChatResp
             username=r.username,
             message=r.message,
             time=r.created_at,
+            consensus=r.consensus
         )
         for r in rows
     ]
@@ -95,11 +99,12 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
         consensus_record = db.query(TripConsensus).filter(TripConsensus.trip_id == trip_id).first()
         
         if not consensus_record:
-            # Create new consensus record
+            # Create new consensus record - ensure only one per trip
             log_info("reach_consensus: creating new consensus record", trip_id=str(trip_id))
             consensus_record = TripConsensus(
                 trip_id=trip_id,
                 status="processing",
+                iteration_count=0,
                 summary={},
                 candidates=[],
                 consensus_card=None,
@@ -109,7 +114,10 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
             db.flush()  # Get the ID
             log_info("reach_consensus: created new consensus record", trip_id=str(trip_id), record_id=str(consensus_record.id))
         else:
-            log_info("reach_consensus: found existing consensus record", trip_id=str(trip_id), current_status=consensus_record.status)
+            log_info("reach_consensus: found existing consensus record", 
+                    trip_id=str(trip_id), 
+                    current_status=consensus_record.status,
+                    iteration_count=consensus_record.iteration_count)
         
         # 2) Fetch NEW messages since last processing
         log_info("reach_consensus: fetching NEW messages", trip_id=str(trip_id))
@@ -138,6 +146,23 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
             if consensus_record.consensus_card:
                 data["consensus_card"] = consensus_record.consensus_card
             
+            # Persist a consensus snapshot into trip_chat_messages for the client to consume
+            try:
+                system_msg = TripChatMessage(
+                    trip_id=trip_id,
+                    username="system",
+                    message="consensus_update",
+                )
+                # Store the entire consensus payload for flexibility
+                system_msg.consensus = data
+                system_msg.chat_status = TripChatMessage.ChatStatus.SUMMARIZED
+                db.add(system_msg)
+                db.commit()
+            except Exception:
+                db.rollback()
+                # Non-fatal: if persisting the snapshot fails, still return the response
+                pass
+
             return ConsensusChatResponse(data=data)
         
         # 4) Prepare messages for LangGraph
@@ -162,6 +187,7 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
             "consensus_card": consensus_record.consensus_card,
             "status": "processing",
             "next_node": None,
+            "iteration_count": consensus_record.iteration_count,  # Pass existing iteration count
         }
         
         # 6) Run LangGraph consensus flow
@@ -170,6 +196,7 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
         # 7) Update consensus record with new state
         if result.get("status") != "error":
             consensus_record.status = result.get("status", "processing")
+            consensus_record.iteration_count = result.get("iteration_count", consensus_record.iteration_count)
             consensus_record.summary = result.get("summary", consensus_record.summary)
             consensus_record.candidates = result.get("candidates", consensus_record.candidates)
             consensus_record.consensus_card = result.get("consensus_card", consensus_record.consensus_card)
@@ -183,7 +210,10 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
                     r.chat_status = TripChatMessage.ChatStatus.SUMMARIZED
             
             db.commit()
-            log_info("Updated consensus state", trip_id=str(trip_id), status=consensus_record.status)
+            log_info("Updated consensus state", 
+                    trip_id=str(trip_id), 
+                    status=consensus_record.status,
+                    iteration_count=consensus_record.iteration_count)
         
         # 8) Build response data
         data = {
@@ -195,6 +225,22 @@ def reach_consensus(trip_id: UUID, db: Session = Depends(get_db)) -> ConsensusCh
         
         if consensus_record.consensus_card:
             data["consensus_card"] = consensus_record.consensus_card
+
+        try:
+                system_msg = TripChatMessage(
+                    trip_id=trip_id,
+                    username="system",
+                    message="consensus_update",
+                )
+                # Store the entire consensus payload for flexibility
+                system_msg.consensus = data
+                system_msg.chat_status = TripChatMessage.ChatStatus.SUMMARIZED
+                db.add(system_msg)
+                db.commit()
+        except Exception:
+            db.rollback()
+            # Non-fatal: if persisting the snapshot fails, still return the response
+            pass
         
         return ConsensusChatResponse(data=data)
         

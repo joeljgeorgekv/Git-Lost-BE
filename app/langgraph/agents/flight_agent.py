@@ -123,3 +123,279 @@ class FlightAgent:
                 booking_link=f"https://booking.example.com/flights/{origin}-{destination}"
             )
         ]
+
+    # ------------------------------
+    # UI-oriented mock data helpers
+    # ------------------------------
+    def mock_flight_options_for_ui(
+        self,
+        origin_code: str = "DEL",
+        origin_city: str = "Delhi",
+        dest_code: str = "DPS",
+        dest_city: str = "Bali",
+        date: str = "2025-10-03",
+        cabin: str = "Economy",
+        currency: str = "INR",
+    ) -> List[Dict[str, Any]]:
+        """Return UI-ready mock flight cards.
+
+        Shape matches what a card component needs (times, codes, airline, price, cabin, stops).
+        """
+        # Kochi -> Mumbai curated set
+        if origin_code.upper() == "COK" and dest_code.upper() in ("BOM", "BOM"):
+            cards: List[Dict[str, Any]] = [
+                {
+                    "airline": "Akasa Air",
+                    "flight_code": "QP 1519",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "11:50",
+                    "arrival_time": "13:55",
+                    "duration": "2h 05m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-03",
+                    "price_current": "₹4,681" if currency == "INR" else "$56",
+                    "price_strike": "₹4,969" if currency == "INR" else "$60",
+                },
+                {
+                    "airline": "SpiceJet",
+                    "flight_code": "SG 132",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "17:20",
+                    "arrival_time": "19:25",
+                    "duration": "2h 05m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-03",
+                    "price_current": "₹4,844" if currency == "INR" else "$58",
+                    "price_strike": "₹5,434" if currency == "INR" else "$65",
+                },
+                {
+                    "airline": "Air India",
+                    "flight_code": "AI 2670",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "22:30",
+                    "arrival_time": "00:50 +1",
+                    "duration": "2h 20m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-03",
+                    "price_current": "₹5,541" if currency == "INR" else "$66",
+                    "price_strike": "₹5,881" if currency == "INR" else "$70",
+                },
+                {
+                    "airline": "IndiGo",
+                    "flight_code": "6E 662",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "07:55",
+                    "arrival_time": "09:50",
+                    "duration": "1h 55m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-03",
+                    "price_current": "₹5,590" if currency == "INR" else "$67",
+                    "price_strike": "₹5,958" if currency == "INR" else "$71",
+                },
+            ]
+            return cards
+
+        # Mumbai -> Kochi curated reverse set (aligned to reference)
+        if origin_code.upper() == "BOM" and dest_code.upper() == "COK":
+            date = "2025-10-05"
+            cards: List[Dict[str, Any]] = [
+                {
+                    "airline": "SpiceJet",
+                    "flight_code": "SG 131",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "14:00",
+                    "arrival_time": "16:00",
+                    "duration": "2h 00m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-05",
+                    "price_current": "₹4,600" if currency == "INR" else "$55",
+                    "price_strike": "₹4,900" if currency == "INR" else "$59",
+                },
+                {
+                    "airline": "IndiGo",
+                    "flight_code": "6E 6701",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "05:35",
+                    "arrival_time": "07:25",
+                    "duration": "1h 50m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-05",
+                    "price_current": "₹5,389" if currency == "INR" else "$65",
+                    "price_strike": "₹5,740" if currency == "INR" else "$69",
+                },
+                {
+                    "airline": "Air India",
+                    "flight_code": "AI 2407",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "00:20",
+                    "arrival_time": "02:20",
+                    "duration": "2h 00m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-05",
+                    "price_current": "₹5,468" if currency == "INR" else "$66",
+                    "price_strike": "₹5,820" if currency == "INR" else "$70",
+                },
+                {
+                    "airline": "Air India",
+                    "flight_code": "AI 2743",
+                    "origin_code": origin_code,
+                    "origin_city": origin_city,
+                    "dest_code": dest_code,
+                    "dest_city": dest_city,
+                    "departure_time": "05:05",
+                    "arrival_time": "07:00",
+                    "duration": "1h 55m",
+                    "stops": 0,
+                    "stops_text": "Non stop",
+                    "cabin": cabin,
+                    "date": "2025-10-05",
+                    "price_current": "₹5,468" if currency == "INR" else "$66",
+                    "price_strike": "₹5,820" if currency == "INR" else "$70",
+                },
+            ]
+            return cards
+
+        cards: List[Dict[str, Any]] = [
+            {
+                "airline": "Air India",
+                "flight_code": "AI 314",
+                "origin_code": origin_code,
+                "origin_city": origin_city,
+                "dest_code": dest_code,
+                "dest_city": dest_city,
+                "departure_time": "14:00",
+                "arrival_time": "23:30",
+                "duration": "5h 30m",
+                "stops": 0,
+                "stops_text": "Direct",
+                "cabin": cabin,
+                "date": date,
+                "price_current": "₹18,500" if currency == "INR" else "$225",
+                "price_strike": "₹22,000" if currency == "INR" else "$270",
+            },
+            {
+                "airline": "Vistara",
+                "flight_code": "UK 971",
+                "origin_code": origin_code,
+                "origin_city": origin_city,
+                "dest_code": dest_code,
+                "dest_city": dest_city,
+                "departure_time": "09:10",
+                "arrival_time": "14:45",
+                "duration": "5h 35m",
+                "stops": 0,
+                "stops_text": "Direct",
+                "cabin": cabin,
+                "date": date,
+                "price_current": "₹19,200" if currency == "INR" else "$235",
+                "price_strike": "₹22,500" if currency == "INR" else "$275",
+            },
+            {
+                "airline": "AirAsia",
+                "flight_code": "AK 381 + AK 378",
+                "origin_code": origin_code,
+                "origin_city": origin_city,
+                "dest_code": dest_code,
+                "dest_city": dest_city,
+                "departure_time": "06:30",
+                "arrival_time": "15:40",
+                "duration": "9h 10m",
+                "stops": 1,
+                "stops_text": "1 stop via KUL",
+                "cabin": cabin,
+                "date": date,
+                "price_current": "₹15,800" if currency == "INR" else "$190",
+                "price_strike": "₹19,500" if currency == "INR" else "$235",
+            },
+        ]
+
+        return cards
+
+    def mock_flight_bookings_for_ui(
+        self,
+        origin_code: str = "DEL",
+        origin_city: str = "Delhi",
+        dest_code: str = "DPS",
+        dest_city: str = "Bali",
+        date: str = "2025-05-01",
+        travelers: int = 1,
+        currency: str = "INR",
+    ) -> List[Dict[str, Any]]:
+        """Return Booking Details payloads for the modal, based on the card mocks.
+
+        Includes savings, total for travelers, and route string.
+        """
+        cards = self.mock_flight_options_for_ui(
+            origin_code=origin_code,
+            origin_city=origin_city,
+            dest_code=dest_code,
+            dest_city=dest_city,
+            date=date,
+            currency=currency,
+        )
+
+        def _to_int(price: str) -> int:
+            import re
+            digits = re.sub(r"[^0-9]", "", price)
+            return int(digits) if digits else 0
+
+        bookings: List[Dict[str, Any]] = []
+        for c in cards:
+            current = _to_int(c.get("price_current", "0"))
+            strike = _to_int(c.get("price_strike", "0"))
+            savings = max(strike - current, 0)
+            total = current * max(travelers, 1)
+            route = f"{c['origin_code']} → {c['dest_code']}"
+
+            bookings.append({
+                "airline": c["airline"],
+                "flight_code": c["flight_code"],
+                "route": route,
+                "duration": c["duration"],
+                "stops_text": c["stops_text"],
+                "date": c["date"],
+                "cabin": c["cabin"],
+                "price_current": c["price_current"],
+                "price_strike": c["price_strike"],
+                "savings": (f"₹{savings:,}" if currency == "INR" else f"${savings}") if savings else None,
+                "travelers": travelers,
+                "total": (f"₹{total:,}" if currency == "INR" else f"${total}"),
+                "type": "Flight",
+            })
+
+        return bookings

@@ -19,6 +19,7 @@ class TravelSummary(BaseModel):
     budget_max: Optional[int] = Field(None, description="Maximum budget per person")
     start_date: Optional[str] = Field(None, description="Start date in YYYY-MM-DD format")
     end_date: Optional[str] = Field(None, description="End date in YYYY-MM-DD format")
+    origin_place: Optional[str] = Field(None, description="Origin city/place where the trip starts from")
     preferred_places: List[str] = Field(default_factory=list, description="List of preferred destinations")
     travel_preferences: List[str] = Field(default_factory=list, description="Travel preferences like food, history, nature, etc.")
     must_haves: List[str] = Field(default_factory=list, description="Must-have requirements")
@@ -46,6 +47,7 @@ class ConsensusCard(BaseModel):
     transportation_cost_per_person: int = Field(description="Transportation cost per person")
     flight_cost_per_person: int = Field(description="Flight cost per person")
     places: List[Dict[str, Any]] = Field(description="List of places with details")
+    origin_place: Optional[str] = Field(None, description="Origin city/place where the trip starts from")
 
 
 class TripConsensusState(TypedDict):
@@ -62,6 +64,7 @@ class TripConsensusState(TypedDict):
     # Flow control
     status: str  # "processing", "multiple_candidates", "converging", "finalized", "no_new_messages"
     next_node: Optional[str]
+    iteration_count: int  # Track iterations to force convergence after 3 rounds
 
 
 class TripConsensusGraph:
@@ -91,6 +94,7 @@ class TripConsensusGraph:
         sg.add_node("place_suggestion", self._place_suggestion)
         sg.add_node("place_selection", self._place_selection)  # New node for reducing candidates
         sg.add_node("consensus", self._consensus)
+        sg.add_node("save_consensus", self._save_consensus)  # New node to save consensus to DB
         
         # Define edges - simplified flow without unnecessary exits
         sg.add_edge("check_messages", "summarizer")
@@ -102,11 +106,12 @@ class TripConsensusGraph:
             self._route_after_selection,
             {
                 "consensus": "consensus",
-                "end": END  # Only exit if we can't reach consensus
+                "end": "save_consensus"  # Always save state before ending
             }
         )
         
-        sg.add_edge("consensus", END)
+        sg.add_edge("consensus", "save_consensus")  # Save consensus after generation
+        sg.add_edge("save_consensus", END)  # End after saving
         
         # Set entry point
         sg.set_entry_point("check_messages")
@@ -118,6 +123,18 @@ class TripConsensusGraph:
     def _route_after_selection(self, state: TripConsensusState) -> str:
         """Route after place selection - key logic for consensus."""
         selected_places = state.get("selected_places", [])
+        iteration_count = state.get("iteration_count", 0)
+        
+        # Force convergence after 3 iterations to prevent infinite loops
+        if iteration_count >= 3:
+            if selected_places:
+                # Force convergence to top candidate
+                log_info("TripConsensus: max iterations reached, forcing convergence", 
+                        iteration_count=iteration_count, place_count=len(selected_places))
+                return "consensus"
+            else:
+                log_info("TripConsensus: max iterations reached, no candidates, ending")
+                return "end"
         
         if not selected_places:
             log_info("TripConsensus: no places selected, ending")
@@ -128,24 +145,28 @@ class TripConsensusGraph:
         else:
             # Multiple places - end with multiple candidates status
             log_info("TripConsensus: multiple places selected, ending with multiple candidates", 
-                    place_count=len(selected_places))
+                    place_count=len(selected_places), iteration_count=iteration_count)
             return "end"
-    
     
     def _check_messages(self, state: TripConsensusState) -> Dict[str, Any]:
         """Check if there are new messages to process."""
         new_messages = state.get("new_messages", [])
         
+        # Initialize iteration counter if not present
+        iteration_count = state.get("iteration_count", 0)
+        
         if not new_messages:
             log_info("TripConsensus: no new messages, proceeding with existing data")
             return {
-                "status": "no_new_messages"
+                "status": "no_new_messages",
+                "iteration_count": iteration_count
             }
-        
-        log_info("TripConsensus: processing messages", count=len(new_messages))
-        return {
-            "status": "processing"
-        }
+        else:
+            log_info("TripConsensus: new messages found, starting processing", message_count=len(new_messages))
+            return {
+                "status": "processing",
+                "iteration_count": iteration_count + 1
+            }
     
     def _summarizer(self, state: TripConsensusState) -> Dict[str, Any]:
         """Summarize new messages into structured format using LLM."""
@@ -223,11 +244,24 @@ class TripConsensusGraph:
         start_date = dates[0] if dates else None
         end_date = dates[1] if len(dates) > 1 else None
         
+        # Extract origin place
+        origin_hints = [
+            "from new york", "from nyc", "from london", "from paris", "from tokyo",
+            "from los angeles", "from chicago", "from boston", "from miami",
+            "from san francisco", "from seattle", "from denver", "from atlanta"
+        ]
+        origin_place = None
+        for hint in origin_hints:
+            if hint in text_lower:
+                origin_place = hint.replace("from ", "").upper()
+                break
+        
         return {
             "budget_min": budget_min,
             "budget_max": budget_max,
             "start_date": start_date,
             "end_date": end_date,
+            "origin_place": origin_place,
             "preferred_places": preferred_places,
             "travel_preferences": travel_preferences,
             "must_haves": []
@@ -337,48 +371,31 @@ class TripConsensusGraph:
                 selected_places = candidates
                 log_info("TripConsensus: single/no candidate, selecting directly")
             else:
-                # Use LLM to intelligently select places based on preferences
-                system_prompt = """
-                You are a travel consensus facilitator. Based on user messages and preferences, 
-                select the most suitable travel destinations. Prioritize places that:
-                1. Are explicitly mentioned positively in recent messages
-                2. Match the user's stated preferences (budget, activities, etc.)
-                3. Have strong consensus signals from multiple users
-                
-                If users are converging on specific places, select those. If there's still ambiguity,
-                select 2-3 top candidates for further consideration.
-                """
-                
-                messages_text = [msg.get("message", "") for msg in new_messages]
-                user_prompt = f"""
-                Current candidates: {candidates}
-                User preferences: {summary}
-                Recent messages: {messages_text}
-                
-                Select the most appropriate destinations based on user consensus and preferences.
-                """
-                
-                log_info("TripConsensus: calling structured LLM for place selection")
-                
-                try:
-                    selection_obj = self.selection_llm.invoke([
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ])
-                    
-                    selected_places = [place.model_dump() for place in selection_obj.candidates]
-                    log_info("TripConsensus: structured place selection successful", selected_count=len(selected_places))
-                    
-                except Exception as llm_err:
-                    log_error("TripConsensus: place selection LLM failed", error=str(llm_err))
-                    # Fallback: prefer mentioned places or take top candidates
-                    selected_places = self._heuristic_place_selection(candidates, summary, new_messages)
-                    log_info("TripConsensus: using heuristic place selection", selected_count=len(selected_places))
+                # Use more lenient heuristic selection to converge faster
+                selected_places = self._heuristic_place_selection(candidates, summary, new_messages)
+                log_info("TripConsensus: using heuristic place selection", selected_count=len(selected_places))
             
-            # Determine status based on selection
+            # More lenient status determination to help convergence
             if len(selected_places) == 1:
                 status = "converging"
-            elif len(selected_places) > 1:
+            elif len(selected_places) == 2:
+                # If we have 2 candidates and there are positive signals, pick the top one
+                messages_text = " ".join([msg.get("message", "").lower() for msg in new_messages])
+                
+                # Check for strong positive signals (focus, prefer, let's go with, etc.)
+                convergence_signals = ["focus on", "let's go with", "prefer", "choose", "pick", "decide on"]
+                has_strong_signal = any(signal in messages_text for signal in convergence_signals)
+                
+                if has_strong_signal:
+                    # Force convergence to top candidate
+                    selected_places = selected_places[:1]
+                    status = "converging"
+                    log_info("TripConsensus: detected convergence signal, selecting top candidate")
+                else:
+                    status = "multiple_candidates"
+            elif len(selected_places) > 2:
+                # Too many candidates, reduce to top 2
+                selected_places = selected_places[:2]
                 status = "multiple_candidates"
             else:
                 status = "no_candidates"
@@ -394,12 +411,12 @@ class TripConsensusGraph:
             error_details = traceback.format_exc()
             log_error("TripConsensus: place_selection failed", error=str(e), traceback=error_details)
             return {
-                "selected_places": state.get("candidates", [])[:2],  # Fallback to top 2 candidates
-                "status": "multiple_candidates"
+                "selected_places": state.get("candidates", [])[:1],  # Fallback to top 1 candidate for faster convergence
+                "status": "converging"
             }
     
     def _heuristic_place_selection(self, candidates: List[Dict[str, Any]], summary: Dict[str, Any], new_messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Fallback heuristic place selection."""
+        """Fallback heuristic place selection with lenient scoring."""
         # Extract mentioned places from recent messages
         messages_text = " ".join([msg.get("message", "").lower() for msg in new_messages])
         
@@ -407,32 +424,64 @@ class TripConsensusGraph:
         scored_candidates = []
         for candidate in candidates:
             place_name = candidate.get("place_name", "").lower()
-            score = 0
+            score = 1  # Base score for all candidates to avoid zero scores
             
-            # Score based on mentions in messages
+            # Score based on exact mentions in messages
             if place_name in messages_text:
                 score += 10
             
+            # Score based on partial matches (e.g., "rome" matches "rome, italy")
+            place_words = place_name.split()
+            for word in place_words:
+                if len(word) > 3 and word in messages_text:  # Avoid short words like "in", "to"
+                    score += 5
+            
             # Score based on preferred places in summary
             preferred_places = [p.lower() for p in summary.get("preferred_places", [])]
-            if place_name in preferred_places:
-                score += 5
+            for pref in preferred_places:
+                if pref in place_name or place_name in pref:
+                    score += 8
+            
+            # Score based on travel preferences matching
+            travel_prefs = [p.lower() for p in summary.get("travel_preferences", [])]
+            candidate_reasons = [r.lower() for r in candidate.get("why_it_matches", [])]
+            for pref in travel_prefs:
+                for reason in candidate_reasons:
+                    if pref in reason:
+                        score += 3
+            
+            # Bonus for budget match
+            candidate_budget = candidate.get("budget", "").lower()
+            if candidate_budget:
+                budget_max = summary.get("budget_max", 0)
+                if budget_max:
+                    if (budget_max < 1000 and "budget" in candidate_budget) or \
+                       (1000 <= budget_max <= 2500 and "mid-range" in candidate_budget) or \
+                       (budget_max > 2500 and "luxury" in candidate_budget):
+                        score += 4
             
             scored_candidates.append((score, candidate))
         
         # Sort by score and return top candidates
         scored_candidates.sort(key=lambda x: x[0], reverse=True)
         
-        # Return top 1-2 candidates
-        if scored_candidates and scored_candidates[0][0] > 0:
-            # If there's a clear winner, return just that
-            if len(scored_candidates) == 1 or scored_candidates[0][0] > scored_candidates[1][0]:
-                return [scored_candidates[0][1]]
-            else:
-                return [scored_candidates[0][1], scored_candidates[1][1]]
-        else:
-            # No clear preference, return top 2
-            return [candidate for _, candidate in scored_candidates[:2]]
+        # More lenient selection logic
+        if not scored_candidates:
+            return []
+        
+        # If top candidate has significantly higher score, return just that
+        if len(scored_candidates) == 1:
+            return [scored_candidates[0][1]]
+        
+        top_score = scored_candidates[0][0]
+        second_score = scored_candidates[1][0] if len(scored_candidates) > 1 else 0
+        
+        # If top candidate has 2x or more score than second, converge to it
+        if top_score >= second_score * 2 and top_score > 5:
+            return [scored_candidates[0][1]]
+        
+        # Otherwise return top 2 for further consideration
+        return [candidate for _, candidate in scored_candidates[:2]]
     
     def _heuristic_candidates(self, summary: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Fallback candidate generation."""
@@ -458,70 +507,124 @@ class TripConsensusGraph:
         """Generate consensus card if single place selected."""
         selected_places = state.get("selected_places", [])
         summary = state.get("summary", {})
+        iteration_count = state.get("iteration_count", 0)
         
-        log_info("TripConsensus: consensus starting", selected_place_count=len(selected_places))
+        log_info("TripConsensus: consensus starting", selected_place_count=len(selected_places), iteration_count=iteration_count)
         
-        if len(selected_places) == 1:
-            # Generate consensus card using LLM
+        # Force convergence after 3 iterations - pick the first available place
+        if iteration_count >= 3 and selected_places:
             chosen = selected_places[0]
-            log_info("TripConsensus: single place selected, generating consensus card", chosen_place=chosen.get("place_name"))
-            
-            try:
-                system_prompt = """
-                Generate a detailed travel consensus card for a finalized destination.
-                Generate realistic cost estimates based on the destination and budget category.
-                """
-                
-                user_prompt = f"""
-                Destination: {chosen['place_name']}
-                Budget range: {chosen.get('budget', 'mid-range')}
-                User summary: {summary}
-                
-                Generate a realistic consensus card with estimated costs.
-                """
-                
-                log_info("TripConsensus: calling structured LLM for consensus card generation")
-                
-                consensus_card_obj = self.consensus_llm.invoke([
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ])
-                
-                # Convert Pydantic model to dict
-                consensus_card = consensus_card_obj.model_dump()
-                log_info("TripConsensus: structured consensus card successful")
-                
-            except Exception as e:
-                import traceback
-                error_details = traceback.format_exc()
-                log_error("TripConsensus: consensus card generation failed", error=str(e), traceback=error_details)
-                # Fallback consensus card
-                consensus_card = {
-                    "date": summary.get("start_date") or "2025-05-15",
-                    "no_of_days": 5,
-                    "weekdays_range": "Thu–Mon",
-                    "accommodation_cost_per_person": 600,
-                    "transportation_cost_per_person": 200,
-                    "flight_cost_per_person": 800,
-                    "places": [{
-                        "place": chosen["place_name"],
-                        "features": ", ".join(summary.get("travel_preferences", ["sightseeing"])),
-                        "keywords": summary.get("travel_preferences", ["landmarks"])
-                    }]
-                }
-                log_info("TripConsensus: using fallback consensus card")
-            
-            log_info("TripConsensus: consensus finalized", destination=chosen["place_name"])
-            return {
-                "status": "finalized",
-                "consensus_card": consensus_card
-            }
-        
+            log_info("TripConsensus: forced convergence due to max iterations", chosen_place=chosen.get("place_name"))
+        elif len(selected_places) == 1:
+            chosen = selected_places[0]
         else:
-            log_info("TripConsensus: multiple places still selected", count=len(selected_places))
+            # This shouldn't happen due to routing logic, but handle gracefully
+            log_error("TripConsensus: consensus called with multiple places", place_count=len(selected_places))
             return {
                 "status": "multiple_candidates"
             }
+        
+        # Generate consensus card using LLM
+        log_info("TripConsensus: generating consensus card", chosen_place=chosen.get("place_name"))
+        
+        try:
+            system_prompt = """
+            Generate a detailed travel consensus card for a finalized destination.
+            Generate realistic cost estimates based on the destination and budget category.
+            """
+            
+            user_prompt = f"""
+            Destination: {chosen['place_name']}
+            Budget range: {chosen.get('budget', 'mid-range')}
+            User summary: {summary}
+            
+            Generate a realistic consensus card with estimated costs.
+            """
+            
+            log_info("TripConsensus: calling structured LLM for consensus card generation")
+            
+            consensus_card_obj = self.consensus_llm.invoke([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ])
+            
+            # Convert Pydantic model to dict
+            consensus_card = consensus_card_obj.model_dump()
+            log_info("TripConsensus: structured consensus card successful")
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            log_error("TripConsensus: consensus card generation failed", error=str(e), traceback=error_details)
+            # Fallback consensus card
+            consensus_card = {
+                "date": summary.get("start_date") or "2025-05-15",
+                "no_of_days": 5,
+                "weekdays_range": "Thu–Mon",
+                "accommodation_cost_per_person": 600,
+                "transportation_cost_per_person": 200,
+                "flight_cost_per_person": 800,
+                "places": [{
+                    "place": chosen["place_name"],
+                    "features": ", ".join(summary.get("travel_preferences", ["sightseeing"])),
+                    "keywords": summary.get("travel_preferences", ["landmarks"])
+                    }],
+                "origin_place": summary.get("origin_place")
+            }
+            log_info("TripConsensus: using fallback consensus card")
+        
+        log_info("TripConsensus: consensus finalized", destination=chosen["place_name"])
+        return {
+            "status": "finalized",
+            "consensus_card": consensus_card
+        }
+    
+    def _save_consensus(self, state: TripConsensusState) -> Dict[str, Any]:
+        """Save the final consensus state to the database."""
+        try:
+            from app.models.trip_consensus import TripConsensus
+            from app.core.database import get_db
+            
+            trip_id = state.get("trip_id")
+            log_info("TripConsensus: saving consensus to database", trip_id=trip_id)
+            
+            # Get database session
+            db = next(get_db())
+            
+            try:
+                # Find the consensus record for this trip
+                consensus_record = db.query(TripConsensus).filter(
+                    TripConsensus.trip_id == trip_id
+                ).first()
+                
+                if consensus_record:
+                    # Update the existing record with final state
+                    consensus_record.status = state.get("status", "processing")
+                    consensus_record.iteration_count = state.get("iteration_count", 0)
+                    consensus_record.summary = state.get("summary", {})
+                    consensus_record.candidates = state.get("candidates", [])
+                    consensus_record.consensus_card = state.get("consensus_card")
+                    
+                    db.commit()
+                    log_info("TripConsensus: successfully saved consensus to database", 
+                            trip_id=trip_id, 
+                            status=consensus_record.status,
+                            iteration_count=consensus_record.iteration_count)
+                else:
+                    log_error("TripConsensus: consensus record not found for trip", trip_id=trip_id)
+                    
+            except Exception as db_error:
+                db.rollback()
+                log_error("TripConsensus: database error while saving consensus", 
+                         trip_id=trip_id, error=str(db_error))
+            finally:
+                db.close()
+                
+        except Exception as e:
+            log_error("TripConsensus: failed to save consensus", trip_id=state.get("trip_id"), error=str(e))
+        
+        # Return the state unchanged - this is just a side effect
+        return {}
     
     def process(self, init_state: TripConsensusState) -> Dict[str, Any]:
         """Process the consensus flow and return final state."""

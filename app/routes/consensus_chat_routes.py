@@ -47,8 +47,7 @@ async def consensus_chat_step(request: ConsensusChatRequest):
             "suggestions": [],
             "route_taken": None,
         }
-        data = service.step(state)
-        return ConsensusChatResponse(data=data)
+        return service.step(state)
     except Exception as e:
         log_error("consensus-chat step failed", error=str(e))
         raise HTTPException(

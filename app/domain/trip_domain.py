@@ -17,11 +17,13 @@ class CreateGroupTripRequest(BaseModel):
 
 class CreateTripResponse(BaseModel):
     trip_id: uuid.UUID
+    trip_code: str
 
 
 class TripSummary(BaseModel):
     id: str  # UUID as string for client compatibility
     trip_name: str
+    trip_code: str
     latest_message: str | None = None
     latest_message_at: str | None = None  # ISO timestamp string
 
@@ -38,3 +40,16 @@ class AddUserToTripRequest(BaseModel):
     budget: int | None = None
     preferences: list[str] | None = None
     must_haves: list[str] | None = None
+
+
+class AddUserToTripByCodeRequest(BaseModel):
+    user_id: uuid.UUID
+
+
+class JoinTripResponse(BaseModel):
+    trip_id: uuid.UUID
+    trip_name: str
+
+
+class TripMembersResponse(BaseModel):
+    members: list[str]
