@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 from typing_extensions import TypedDict
+from datetime import datetime, timedelta
 
 from langgraph.graph import StateGraph, END
 from langchain_openai import ChatOpenAI
@@ -72,7 +73,7 @@ class TripConsensusGraph:
     
     def __init__(self) -> None:
         base_llm = ChatOpenAI(
-            model="gpt-4o-mini", 
+            model="gpt-5", 
             temperature=0, 
             openai_api_key=settings.openai_api_key
         )
@@ -550,6 +551,8 @@ class TripConsensusGraph:
             
             # Convert Pydantic model to dict
             consensus_card = consensus_card_obj.model_dump()
+            # Normalize to ensure dates/days/weekday range and origin/places consistency
+            consensus_card = self._normalize_consensus_card(chosen, summary, consensus_card)
             log_info("TripConsensus: structured consensus card successful")
             
         except Exception as e:
@@ -559,8 +562,9 @@ class TripConsensusGraph:
             # Fallback consensus card
             consensus_card = {
                 "date": summary.get("start_date") or "2025-05-15",
-                "no_of_days": 5,
-                "weekdays_range": "Thu–Mon",
+                # no_of_days and weekdays_range will be normalized below
+                "no_of_days": 3,
+                "weekdays_range": "Fri–Sun",
                 "accommodation_cost_per_person": 600,
                 "transportation_cost_per_person": 200,
                 "flight_cost_per_person": 800,
@@ -568,9 +572,10 @@ class TripConsensusGraph:
                     "place": chosen["place_name"],
                     "features": ", ".join(summary.get("travel_preferences", ["sightseeing"])),
                     "keywords": summary.get("travel_preferences", ["landmarks"])
-                    }],
+                }],
                 "origin_place": summary.get("origin_place")
             }
+            consensus_card = self._normalize_consensus_card(chosen, summary, consensus_card)
             log_info("TripConsensus: using fallback consensus card")
         
         log_info("TripConsensus: consensus finalized", destination=chosen["place_name"])
@@ -578,6 +583,84 @@ class TripConsensusGraph:
             "status": "finalized",
             "consensus_card": consensus_card
         }
+
+    def _normalize_consensus_card(self, chosen: Dict[str, Any], summary: Dict[str, Any], card: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize consensus card to ensure internally consistent fields.
+        - date aligns with summary.start_date when present
+        - no_of_days and weekdays_range are computed from (start_date, end_date)
+        - ensure places contains the chosen destination with minimal fields
+        - propagate origin_place from summary when missing
+        - clamp costs to non-negative integers
+        """
+        try:
+            start_str = (summary or {}).get("start_date") or card.get("date")
+            end_str = (summary or {}).get("end_date")
+            # Parse dates when possible
+            start_dt = None
+            end_dt = None
+            if start_str:
+                try:
+                    start_dt = datetime.fromisoformat(start_str)
+                except Exception:
+                    start_dt = None
+            if end_str:
+                try:
+                    end_dt = datetime.fromisoformat(end_str)
+                except Exception:
+                    end_dt = None
+
+            # Compute days and weekday range
+            if start_dt:
+                if end_dt and end_dt >= start_dt:
+                    days = (end_dt - start_dt).days + 1  # inclusive day count
+                    end_for_range = end_dt
+                else:
+                    # fall back to existing no_of_days or minimum 1
+                    days = max(int(card.get("no_of_days") or 1), 1)
+                    end_for_range = start_dt + timedelta(days=days - 1)
+
+                # Update fields
+                card["date"] = start_dt.date().isoformat()
+                card["no_of_days"] = days
+                card["weekdays_range"] = f"{start_dt.strftime('%a')}–{end_for_range.strftime('%a')}"
+
+            # Ensure places list
+            places = card.get("places")
+            if not isinstance(places, list) or len(places) == 0:
+                card["places"] = [{
+                    "place": chosen.get("place_name", ""),
+                    "features": ", ".join((summary or {}).get("travel_preferences", [])) or "",
+                    "keywords": (summary or {}).get("travel_preferences", []) or []
+                }]
+            else:
+                # Ensure first item has the chosen place name
+                card["places"][0].setdefault("place", chosen.get("place_name", ""))
+
+            # Propagate origin_place
+            if not card.get("origin_place"):
+                origin = (summary or {}).get("origin_place")
+                if origin:
+                    card["origin_place"] = origin
+
+            # Clamp costs to non-negative ints
+            for k in ("accommodation_cost_per_person", "transportation_cost_per_person", "flight_cost_per_person"):
+                try:
+                    v = int(card.get(k) if card.get(k) is not None else 0)
+                    card[k] = max(v, 0)
+                except Exception:
+                    card[k] = 0
+
+            # Ensure minimal correctness of no_of_days
+            try:
+                nd = int(card.get("no_of_days", 1))
+                card["no_of_days"] = max(nd, 1)
+            except Exception:
+                card["no_of_days"] = 1
+
+        except Exception as norm_err:
+            # If normalization fails, log and return original card
+            log_error("TripConsensus: consensus card normalization failed", error=str(norm_err))
+        return card
     
     def _save_consensus(self, state: TripConsensusState) -> Dict[str, Any]:
         """Save the final consensus state to the database."""
