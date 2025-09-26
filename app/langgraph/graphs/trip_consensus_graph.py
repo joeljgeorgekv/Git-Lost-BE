@@ -74,7 +74,6 @@ class TripConsensusGraph:
     def __init__(self) -> None:
         base_llm = ChatOpenAI(
             model="gpt-5", 
-            temperature=0.2, 
             openai_api_key=settings.openai_api_key
         )
         
